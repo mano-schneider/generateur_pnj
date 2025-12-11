@@ -198,9 +198,11 @@ class Pnj:
         self.equipement_classique = equip_classique[self.classe]
         self.po = self.niveau*random.randint(200, 1000)
         self.carac = 0
+        self.jp = 0
         self.modif_constitution = 0
         self.pv = 0
         self.ca = 0
+
 
     def lancer_carac(self):
         self.carac, self.modif_constitution = lancer_carac()
@@ -261,36 +263,228 @@ class Voleur(Pnj):
         super().__init__(nom, niveau, classe='voleur')
         self.guilde = random.choice(['Specularium','Kelven','Luln','Selenica'])
         self.alignement = random.choice(['CC','CN','NC','NN'])
+        self.jp = {
+    'Rayon mortel, poison':13,
+    'Baguette magique':14,
+    'Paralysie ou pétrification':13,
+    'Souffle du dragon':16,
+    'Sceptre, baton ou sort':15
+} if self.niveau <= 4 else {
+    'Rayon mortel, poison':11,
+    'Baguette magique':12,
+    'Paralysie ou pétrification':11,
+    'Souffle du dragon':14,
+    'Sceptre, baton ou sort':13
+} if self.niveau <= 8 else {
+    'Rayon mortel, poison':9,
+    'Baguette magique':10,
+    'Paralysie ou pétrification':9,
+    'Souffle du dragon':12,
+    'Sceptre, baton ou sort':11
+} if self.niveau <= 12 else {
+    'Rayon mortel, poison':7,
+    'Baguette magique':8,
+    'Paralysie ou pétrification':7,
+    'Souffle du dragon':10,
+    'Sceptre, baton ou sort':9
+} if self.niveau <= 16 else {
+    'Rayon mortel, poison':5,
+    'Baguette magique':6,
+    'Paralysie ou pétrification':5,
+    'Souffle du dragon':8,
+    'Sceptre, baton ou sort':7
+}
 
 class Guerrier(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe='guerrier')
+        self.jp = {
+    'Rayon mortel, poison':12,
+    'Baguette magique':13,
+    'Paralysie ou pétrification':14,
+    'Souffle du dragon':15,
+    'Sceptre, baton ou sort':16
+} if self.niveau <= 3 else {
+    'Rayon mortel, poison':10,
+    'Baguette magique':11,
+    'Paralysie ou pétrification':12,
+    'Souffle du dragon':13,
+    'Sceptre, baton ou sort':14
+} if self.niveau <= 6 else {
+    'Rayon mortel, poison':8,
+    'Baguette magique':9,
+    'Paralysie ou pétrification':10,
+    'Souffle du dragon':11,
+    'Sceptre, baton ou sort':12
+} if self.niveau <= 9 else {
+    'Rayon mortel, poison':6,
+    'Baguette magique':7,
+    'Paralysie ou pétrification':8,
+    'Souffle du dragon':9,
+    'Sceptre, baton ou sort':10
+} if self.niveau <= 12 else {
+    'Rayon mortel, poison':6,
+    'Baguette magique':6,
+    'Paralysie ou pétrification':7,
+    'Souffle du dragon':8,
+    'Sceptre, baton ou sort':9
+}
 
 class Clerc(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe='clerc')
         self.culte = 'Balgor' if self.alignement in ('LL','LN') else 'Idriss' if self.alignement in ('NL', 'NN', 'NC') else 'Chardros'
-
+        self.jp = {
+    'Rayon mortel, poison':11,
+    'Baguette magique':12,
+    'Paralysie ou pétrification':14,
+    'Souffle du dragon':16,
+    'Sceptre, baton ou sort':15
+} if self.niveau <= 4 else {
+    'Rayon mortel, poison':9,
+    'Baguette magique':10,
+    'Paralysie ou pétrification':12,
+    'Souffle du dragon':14,
+    'Sceptre, baton ou sort':13
+} if self.niveau <= 8 else {
+    'Rayon mortel, poison':7,
+    'Baguette magique':8,
+    'Paralysie ou pétrification':10,
+    'Souffle du dragon':12,
+    'Sceptre, baton ou sort':11
+} if self.niveau <= 12 else {
+    'Rayon mortel, poison':6,
+    'Baguette magique':7,
+    'Paralysie ou pétrification':8,
+    'Souffle du dragon':10,
+    'Sceptre, baton ou sort':9
+} if self.niveau <= 16 else {
+    'Rayon mortel, poison':5,
+    'Baguette magique':6,
+    'Paralysie ou pétrification':6,
+    'Souffle du dragon':8,
+    'Sceptre, baton ou sort':7
+}
+        
 class Mage(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe = 'mage')
+        self.jp = {
+    'Rayon mortel, poison':13,
+    'Baguette magique':14,
+    'Paralysie ou pétrification':13,
+    'Souffle du dragon':16,
+    'Sceptre, baton ou sort':15
+} if self.niveau <= 5 else {
+    'Rayon mortel, poison':11,
+    'Baguette magique':12,
+    'Paralysie ou pétrification':11,
+    'Souffle du dragon':14,
+    'Sceptre, baton ou sort':12
+} if self.niveau <= 10 else {
+    'Rayon mortel, poison':9,
+    'Baguette magique':10,
+    'Paralysie ou pétrification':9,
+    'Souffle du dragon':12,
+    'Sceptre, baton ou sort':9
+} if self.niveau <= 15 else {
+    'Rayon mortel, poison':7,
+    'Baguette magique':8,
+    'Paralysie ou pétrification':7,
+    'Souffle du dragon':10,
+    'Sceptre, baton ou sort':6
+} if self.niveau <= 20 else {
+    'Rayon mortel, poison':5,
+    'Baguette magique':6,
+    'Paralysie ou pétrification':5,
+    'Souffle du dragon':8,
+    'Sceptre, baton ou sort':4
+}
 
 class Nain(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe = 'nain')
         self.clan = random.choice(['Poing Sanglant','Arche de Jade', 'Forge de Roïd'])
+        self.jp = {
+    'Rayon mortel, poison':8,
+    'Baguette magique':9,
+    'Paralysie ou pétrification':10,
+    'Souffle du dragon':13,
+    'Sceptre, baton ou sort':12
+} if self.niveau <= 3 else {
+    'Rayon mortel, poison':6,
+    'Baguette magique':7,
+    'Paralysie ou pétrification':8,
+    'Souffle du dragon':10,
+    'Sceptre, baton ou sort':9
+} if self.niveau <= 6 else {
+    'Rayon mortel, poison':4,
+    'Baguette magique':5,
+    'Paralysie ou pétrification':6,
+    'Souffle du dragon':7,
+    'Sceptre, baton ou sort':6
+} if self.niveau <= 9 else {
+    'Rayon mortel, poison':2,
+    'Baguette magique':3,
+    'Paralysie ou pétrification':4,
+    'Souffle du dragon':4,
+    'Sceptre, baton ou sort':3
+} 
 
 class Elfe(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe = 'elfe')
         self.clan = random.choice(['Croix Verte', 'Trèfle rouge', 'Flamme d\'or'])
+        self.jp = {
+    'Rayon mortel, poison':12,
+    'Baguette magique':13,
+    'Paralysie ou pétrification':13,
+    'Souffle du dragon':15,
+    'Sceptre, baton ou sort':15
+} if self.niveau <= 3 else {
+    'Rayon mortel, poison':8,
+    'Baguette magique':10,
+    'Paralysie ou pétrification':10,
+    'Souffle du dragon':11,
+    'Sceptre, baton ou sort':11
+} if self.niveau <= 6 else {
+    'Rayon mortel, poison':4,
+    'Baguette magique':7,
+    'Paralysie ou pétrification':7,
+    'Souffle du dragon':7,
+    'Sceptre, baton ou sort':7
+} if self.niveau <= 9 else {
+    'Rayon mortel, poison':2,
+    'Baguette magique':4,
+    'Paralysie ou pétrification':4,
+    'Souffle du dragon':3,
+    'Sceptre, baton ou sort':3
+} 
 
 class Petite_gens(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, classe = 'petite-gens')
         self.alignement = random.choice(['LL','LN','NL','NN'])
         self.clan = random.choice(['Huttes Jumelles'])
-
+        self.jp = {
+    'Rayon mortel, poison':8,
+    'Baguette magique':9,
+    'Paralysie ou pétrification':10,
+    'Souffle du dragon':13,
+    'Sceptre, baton ou sort':12
+} if self.niveau <= 3 else {
+    'Rayon mortel, poison':5,
+    'Baguette magique':6,
+    'Paralysie ou pétrification':7,
+    'Souffle du dragon':8,
+    'Sceptre, baton ou sort':9
+} if self.niveau <= 6 else {
+    'Rayon mortel, poison':2,
+    'Baguette magique':3,
+    'Paralysie ou pétrification':4,
+    'Souffle du dragon':5,
+    'Sceptre, baton ou sort':4
+} 
 
 def generer_pnj_objet(nom, niveau, classe):
     # Factory function qui retourne l'objet au lieu d'afficher
@@ -370,14 +564,14 @@ else:
 
 # --- ZONE PRINCIPALE (Génération) ---
 
-# Le gros bouton pour lancer tout ce qu'il y a dans la file d'attente
+# Le bouton pour lancer tout ce qu'il y a dans la file d'attente
 if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
     
     if not st.session_state.file_attente:
         st.error("Ajoute d'abord des groupes dans la barre latérale !")
     
     else:
-        # On boucle sur chaque GROUPE de la file d'attente
+        # On boucle sur chaque groupe de la file d'attente
         for cmd in st.session_state.file_attente:
             
             st.markdown(f"### ⚔️ Groupe : {cmd['quantite']} {cmd['classe'].capitalize()}(s) Niveau {cmd['niveau']}")
@@ -397,7 +591,7 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                 # Création
                 hero = generer_pnj_objet(nom_final, cmd['niveau'], cmd['classe'])
                 
-                # Affichage (Identique à avant)
+                # Affichage
                 # On utilise cols[i % 3] pour remplir les colonnes grille par grille
                 # Affichage
                 with cols[i % 3].container(border=True):
@@ -418,7 +612,7 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                     
                     st.divider() # Petite ligne de séparation
                     
-                    # --- NOUVEAU : CARACTÉRISTIQUES EN COLONNES ---
+                    # ---  CARACTÉRISTIQUES EN COLONNES ---
                     with st.expander("📊 Caractéristiques", expanded=True): 
                         # expanded=True permet de le laisser ouvert par défaut (change en False pour fermer)
                         
@@ -447,3 +641,44 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                         
                         if hero.equipement_rare_general: 
                             st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
+                    
+                    # --- JETS DE PROTECTION ---
+                    with st.expander("🛡️ Jets de Protection"):
+                        
+                        # Sécurité : on vérifie si le dico 'jp' existe
+                        if hasattr(hero, 'jp'):
+                            
+                            c1, c2, c3, c4, c5 = st.columns(5)
+                            
+                            # Fonction locale pour afficher joliment (Icône + Label court + Valeur)
+                            def afficher_stat(colonne, icone, label_court, cle_dico):
+                                valeur = hero.jp.get(cle_dico, "-")
+                                # On utilise du HTML pour centrer et grossir le chiffre
+                                colonne.markdown(f"""
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 20px;">{icone}</div>
+                                        <div style="font-size: 10px; color: grey;">{label_court}</div>
+                                        <div style="font-size: 22px; font-weight: bold;">{valeur}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                            # --- MAPPING ---
+                            # On associe tes clés longues à l'affichage colonne
+                            
+                            # 1. Mort / Poison
+                            afficher_stat(c1, "☠️", "R.Mort/Poison", 'Rayon mortel, poison')
+                            
+                            # 2. Baguettes
+                            afficher_stat(c2, "🪄", "Baguettes", 'Baguette magique')
+                            
+                            # 3. Paralysie
+                            afficher_stat(c3, "🗿", "Paralysie", 'Paralysie ou pétrification')
+                            
+                            # 4. Souffle
+                            afficher_stat(c4, "🐲", "Souffle", 'Souffle du dragon')
+                            
+                            # 5. Sorts
+                            afficher_stat(c5, "✨", "Sorts", 'Sceptre, baton ou sort')
+                            
+                        else:
+                            st.warning("Pas de jets de protection définis.")
