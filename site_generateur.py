@@ -1,6 +1,49 @@
 import streamlit as st
 import random
 
+
+# --- MOTEUR DE GÉNÉRATION DE NOMS ---
+def generer_nom_fantasy(classe_pnj):
+    # On définit des sonorités par "race/ambiance"
+    syllabes = {
+        'humain': { # Pour Voleur, Guerrier, Mage, Clerc
+            'debut': ['Al', 'Breg', 'Cal', 'Dar', 'El', 'Fen', 'Gor', 'Hald', 'Jar', 'Kel', 'Lor', 'Mar', 'Nor', 'Or', 'Pol', 'Quen', 'Rad', 'Sten', 'Tor', 'Val'],
+            'fin': ['aric', 'on', 'en', 'or', 'an', 'in', 'is', 'us', 'ath', 'el', 'win', 'ard', 'ric', 'mond', 'gard']
+        },
+        'elfe': {
+            'debut': ['Ael', 'Cael', 'Elar', 'Faen', 'Gala', 'Ilan', 'Laer', 'Mael', 'Nael', 'Paer', 'Rael', 'Sae', 'Tael', 'Vaer'],
+            'fin': ['a', 'as', 'ian', 'ion', 'iar', 'or', 'wyn', 'fiel', 'thil', 'luan', 'niel']
+        },
+        'nain': {
+            'debut': ['Bal', 'Bof', 'Dor', 'Dwal', 'Far', 'Gil', 'Gim', 'Kil', 'Mor', 'Nal', 'Nor', 'Oin', 'Thor', 'Thra', 'Ung'],
+            'fin': ['in', 'ur', 'ar', 'or', 'ik', 'ok', 'al', 'ol', 'im', 'am', 'ir']
+        },
+        'petite-gens': {
+            'debut': ['Bil', 'Bung', 'Dro', 'Fro', 'Mer', 'Mil', 'Per', 'Pip', 'Sam', 'Tol', 'Wil'],
+            'fin': ['bo', 'do', 'go', 'lo', 'mo', 'po', 'to', 'wise', 'ac', 'ic']
+        }
+    }
+
+    # 1. On détermine la race
+    classe_pnj = classe_pnj.lower()
+    if classe_pnj in ['elfe']:
+        categorie = 'elfe'
+    elif classe_pnj in ['nain']:
+        categorie = 'nain'
+    elif classe_pnj in ['petite-gens']:
+        categorie = 'petite-gens'
+    else:
+        categorie = 'humain'
+
+    # 2. Construction du nom
+    partie_1 = random.choice(syllabes[categorie]['debut'])
+    partie_2 = random.choice(syllabes[categorie]['fin'])
+    
+    return partie_1 + partie_2
+
+
+
+
 # ==========================================
 # 1. DONNÉES & CONFIGURATION
 # ==========================================
@@ -278,21 +321,31 @@ st.title("🛡️ Générateur de PNJ - D&D")
 st.sidebar.header("Paramètres")
 
 nb_pnj = st.sidebar.number_input("Nombre de PNJ à créer", min_value=1, max_value=20, value=1)
-nom_base = st.sidebar.text_input("Nom (ou base du nom)", "Inconnu")
+utiliser_nom_aleatoire = st.sidebar.checkbox("Générer des noms aléatoires ?", value=True)
+
+if not utiliser_nom_aleatoire:
+    nom_base = st.sidebar.text_input("Nom manuel (ou base)", "Inconnu")
+else:
+    nom_base = "Aléatoire"
+
 niveau_choisi = st.sidebar.number_input("Niveau", min_value=1, max_value=20, value=1)
 classe_choisie = st.sidebar.selectbox("Classe", classes_dispo)
 
-if st.sidebar.button("🎲 GÉNÉRER", type="primary"):
+st.write(f"### Résultat : {nb_pnj} {classe_choisie.capitalize()}(s) niveau {niveau_choisi}")
     
-    st.write(f"### Résultat : {nb_pnj} {classe_choisie.capitalize()}(s) niveau {niveau_choisi}")
+cols = st.columns(min(nb_pnj, 3))
     
-    cols = st.columns(min(nb_pnj, 3)) # Affichage en grille (max 3 colonnes)
-    
-    for i in range(nb_pnj):
-        # Pour varier les noms si on en génère plusieurs
-        nom_final = f"{nom_base} {i+1}" if nb_pnj > 1 else nom_base
+for i in range(nb_pnj):
         
-        # Création du PNJ
+        # --- LOGIQUE DE NOM ---
+        if utiliser_nom_aleatoire:
+            # On appelle le générateur
+            nom_final = generer_nom_fantasy(classe_choisie)
+        else:
+            # On garde ton ancienne logique manuelle
+            nom_final = f"{nom_base} {i+1}" if nb_pnj > 1 else nom_base
+        
+        # Création du PNJ avec le nom final
         hero = generer_pnj_objet(nom_final, niveau_choisi, classe_choisie)
         
         # Affichage propre dans un "Container"
