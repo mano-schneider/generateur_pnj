@@ -9,7 +9,7 @@ st.set_page_config(page_title="Générateur PNJ D&D", page_icon="🐉", layout="
 
 classes_dispo = ['voleur','guerrier','mage','clerc','nain','elfe','petite-gens']
 
-# --- Tes dictionnaires d'équipement (Je les laisse tels quels) ---
+# --- dictionnaires d'équipement ---
 equip_off_niv_1_a_6 = {
     'voleur':['épée courte +1', 'arbalète + 1', 'baguette de foudre 5 dé 6 1 charge', 'parchemin de projectile magique 1 charge', '1 carreau de sommeil', 'un carreau enflammé (+3 dégats)'], 
     'guerrier':['espadon +1', 'arc long +1', 'potion de force (+2 force)'], 
@@ -103,7 +103,7 @@ equip_par_classe_niv_7_ou_plus = {
 
 
 # ==========================================
-# 2. LOGIQUE MÉTIER (TES FONCTIONS)
+# 2. LOGIQUE MÉTIER
 # ==========================================
 
 def lancer_pv(classe:str, nb_dés:int, modificateur=0):
@@ -188,7 +188,7 @@ class Pnj:
         if chance['gen'] <= 20:
              self.equipement_rare_general.extend(random.sample(source[1], nb_items))
 
-        # IMPORTANT : On garde des chaines de caractères comme dans ton code d'origine
+        
         self.equipement_rare_offensif = ' - '.join(self.equipement_rare_offensif)
         self.equipement_rare_defensif = ' - '.join(self.equipement_rare_defensif)
         self.equipement_rare_general = ' - '.join(self.equipement_rare_general)
@@ -199,7 +199,7 @@ class Pnj:
         base_ca = {'guerrier':3, 'nain':3, 'clerc':4, 'mage':4, 'elfe':2, 'petite-gens':2, 'voleur':6}
         self.ca = base_ca.get(self.classe, 9)
 
-        # Calcul robuste (CORRECTION DE TES BUGS ICI)
+
         # On découpe la string créée dans define_equipement_rare
         if self.equipement_rare_defensif:
             objets = self.equipement_rare_defensif.split(' - ')
