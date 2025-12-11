@@ -399,23 +399,51 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                 
                 # Affichage (Identique à avant)
                 # On utilise cols[i % 3] pour remplir les colonnes grille par grille
+                # Affichage
                 with cols[i % 3].container(border=True):
                     st.subheader(f"👤 {hero.nom}")
                     
+                    # Détails (Alignement, Guilde...)
                     details = f"Alignement : **{hero.alignement}**"
                     if hasattr(hero, 'guilde'): details += f" | Guilde : **{hero.guilde}**"
                     if hasattr(hero, 'culte'): details += f" | Culte : **{hero.culte}**"
                     if hasattr(hero, 'clan'): details += f" | Clan : **{hero.clan}**"
                     st.markdown(details)
                     
+                    # Métriques principales (PV, CA, PO)
                     c1, c2, c3 = st.columns(3)
-                    c1.metric("PV", hero.pv)
-                    c2.metric("CA", hero.ca)
-                    c3.metric("Or", hero.po)
+                    c1.metric("❤️ PV", hero.pv)
+                    c2.metric("🛡️ CA", hero.ca)
+                    c3.metric("💰 PO", hero.po)
                     
-                    with st.expander("Inventaire"):
-                        st.write(f"**Classique:** {hero.equipement_classique}")
-                        if hero.equipement_rare_offensif: st.write(f"**Attaque:** {hero.equipement_rare_offensif}")
-                        if hero.equipement_rare_defensif: st.write(f"**Défense:** {hero.equipement_rare_defensif}")
-            
-            st.markdown("---") # Séparateur entre les groupes
+                    st.divider() # Petite ligne de séparation
+                    
+                    # --- NOUVEAU : CARACTÉRISTIQUES EN COLONNES ---
+                    with st.expander("📊 Caractéristiques", expanded=True): 
+                        # expanded=True permet de le laisser ouvert par défaut (change en False pour fermer)
+                        
+                        s1, s2, s3, s4, s5, s6 = st.columns(6)
+                        
+                        # On affiche chaque stat dans sa petite colonne
+                        # hero.carac est un dictionnaire {'F': '18(+3)', ...}
+                        s1.markdown(f"**FOR**<br>{hero.carac['F']}", unsafe_allow_html=True)
+                        s2.markdown(f"**INT**<br>{hero.carac['I']}", unsafe_allow_html=True)
+                        s3.markdown(f"**SAG**<br>{hero.carac['S']}", unsafe_allow_html=True)
+                        s4.markdown(f"**DEX**<br>{hero.carac['D']}", unsafe_allow_html=True)
+                        s5.markdown(f"**CON**<br>{hero.carac['C']}", unsafe_allow_html=True)
+                        s6.markdown(f"**CHA**<br>{hero.carac['Ch']}", unsafe_allow_html=True)
+
+                    # --- INVENTAIRE ---
+                    with st.expander("🎒 Inventaire"):
+                        if hero.equipement_classique:
+                            st.write(f"**Base:** {hero.equipement_classique}")
+                        
+                        # On affiche seulement si la liste n'est pas vide
+                        if hero.equipement_rare_offensif: 
+                            st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
+                        
+                        if hero.equipement_rare_defensif: 
+                            st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
+                        
+                        if hero.equipement_rare_general: 
+                            st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
