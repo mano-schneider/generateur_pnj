@@ -196,7 +196,7 @@ class Pnj:
         self.equipement_rare_defensif = []
         self.equipement_rare_general = []
         self.equipement_classique = equip_classique[self.classe]
-        self.po = self.niveau*random.randint(200, 1000)
+        self.po = self.niveau*random.randint(100, 300) if self.niveau <= 6 else self.niveau*random.randint(300, 700) if self.niveau <= 8 else self.niveau*random.randint(700, 1000)
         self.carac = 0
         self.jp = 0
         self.modif_constitution = 0
