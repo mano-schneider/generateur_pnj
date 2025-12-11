@@ -311,71 +311,111 @@ def generer_pnj_objet(nom, niveau, classe):
     
     return pnj
 
+
 # ==========================================
-# 3. INTERFACE STREAMLIT
+# 3. INTERFACE STREAMLIT (MODE "PANIER")
 # ==========================================
 
 st.title("🛡️ Générateur de PNJ - D&D")
 
-# --- SIDEBAR (Entrées utilisateur) ---
-st.sidebar.header("Paramètres")
+# --- Initialisation de la mémoire (Le Panier) ---
+if 'file_attente' not in st.session_state:
+    st.session_state.file_attente = []
 
-nb_pnj = st.sidebar.number_input("Nombre de PNJ à créer", min_value=1, max_value=20, value=1)
-utiliser_nom_aleatoire = st.sidebar.checkbox("Générer des noms aléatoires ?", value=True)
+# --- SIDEBAR (Configuration) ---
+st.sidebar.header("1. Configurer un groupe")
 
-if not utiliser_nom_aleatoire:
-    nom_base = st.sidebar.text_input("Nom manuel (ou base)", "Inconnu")
+# On utilise un formulaire pour ne pas recharger la page à chaque changement de chiffre
+with st.sidebar.form("config_form"):
+    classe_choisie = st.selectbox("Classe", classes_dispo)
+    niveau_choisi = st.number_input("Niveau", 1, 20, 1)
+    nb_pnj = st.number_input("Quantité", 1, 20, 1)
+    
+    # Options supplémentaires
+    utiliser_nom_aleatoire = st.checkbox("Noms aléatoires ?", value=True)
+    if not utiliser_nom_aleatoire:
+        nom_base = st.text_input("Nom de base", "Inconnu")
+    else:
+        nom_base = "Aléatoire"
+
+    # Bouton d'ajout
+    bouton_ajout = st.form_submit_button("➕ Ajouter ce groupe")
+
+if bouton_ajout:
+    # On ajoute la commande dans la mémoire
+    st.session_state.file_attente.append({
+        'classe': classe_choisie,
+        'niveau': niveau_choisi,
+        'quantite': nb_pnj,
+        'nom_base': nom_base,
+        'auto_nom': utiliser_nom_aleatoire
+    })
+    st.success(f"Ajouté : {nb_pnj} {classe_choisie}(s) Niv.{niveau_choisi}")
+
+# --- SIDEBAR (Affichage du Panier) ---
+st.sidebar.markdown("---")
+st.sidebar.header("2. File d'attente")
+
+if len(st.session_state.file_attente) == 0:
+    st.sidebar.info("Aucun groupe préparé.")
 else:
-    nom_base = "Aléatoire"
-
-niveau_choisi = st.sidebar.number_input("Niveau", min_value=1, max_value=20, value=1)
-classe_choisie = st.sidebar.selectbox("Classe", classes_dispo)
-
-st.write(f"### Résultat : {nb_pnj} {classe_choisie.capitalize()}(s) niveau {niveau_choisi}")
+    # On affiche la liste des commandes
+    for i, cmd in enumerate(st.session_state.file_attente):
+        st.sidebar.text(f"{i+1}. {cmd['quantite']}x {cmd['classe']} (Niv.{cmd['niveau']})")
     
-cols = st.columns(min(nb_pnj, 3))
+    # Bouton pour vider si on s'est trompé
+    if st.sidebar.button("🗑️ Tout effacer"):
+        st.session_state.file_attente = []
+        st.rerun()
+
+# --- ZONE PRINCIPALE (Génération) ---
+
+# Le gros bouton pour lancer tout ce qu'il y a dans la file d'attente
+if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
     
-for i in range(nb_pnj):
-        
-        # --- LOGIQUE DE NOM ---
-        if utiliser_nom_aleatoire:
-            # On appelle le générateur
-            nom_final = generer_nom_fantasy(classe_choisie)
-        else:
-            # On garde ton ancienne logique manuelle
-            nom_final = f"{nom_base} {i+1}" if nb_pnj > 1 else nom_base
-        
-        # Création du PNJ avec le nom final
-        hero = generer_pnj_objet(nom_final, niveau_choisi, classe_choisie)
-        
-        # Affichage propre dans un "Container"
-        with st.container(border=True):
-            st.subheader(f"👤 {hero.nom}")
+    if not st.session_state.file_attente:
+        st.error("Ajoute d'abord des groupes dans la barre latérale !")
+    
+    else:
+        # On boucle sur chaque GROUPE de la file d'attente
+        for cmd in st.session_state.file_attente:
             
-            # Attributs spéciaux selon classe (Polymorphisme visuel)
-            details = f"Alignement : **{hero.alignement}**"
-            if hasattr(hero, 'guilde'): details += f" | Guilde : **{hero.guilde}**"
-            if hasattr(hero, 'culte'): details += f" | Culte : **{hero.culte}**"
-            if hasattr(hero, 'clan'): details += f" | Clan : **{hero.clan}**"
-            st.markdown(details)
+            st.markdown(f"### ⚔️ Groupe : {cmd['quantite']} {cmd['classe'].capitalize()}(s) Niveau {cmd['niveau']}")
             
-            # Métriques clés
-            c1, c2, c3 = st.columns(3)
-            c1.metric("PV", hero.pv)
-            c2.metric("CA", hero.ca)
-            c3.metric("Or (PO)", hero.po)
+            # Création des colonnes pour ce groupe spécifique
+            cols = st.columns(min(cmd['quantite'], 3))
             
-            # Caractéristiques
-            st.markdown("---")
-            st.markdown("**Caractéristiques :**")
-            st.code(str(hero.carac).replace("{", "").replace("}", "").replace("'", ""))
+            # On boucle pour créer le nombre de PNJ demandé dans ce groupe
+            for i in range(cmd['quantite']):
+                
+                # Gestion du nom
+                if cmd['auto_nom']:
+                    nom_final = generer_nom_fantasy(cmd['classe'])
+                else:
+                    nom_final = f"{cmd['nom_base']} {i+1}" if cmd['quantite'] > 1 else cmd['nom_base']
+                
+                # Création
+                hero = generer_pnj_objet(nom_final, cmd['niveau'], cmd['classe'])
+                
+                # Affichage (Identique à avant)
+                # On utilise cols[i % 3] pour remplir les colonnes grille par grille
+                with cols[i % 3].container(border=True):
+                    st.subheader(f"👤 {hero.nom}")
+                    
+                    details = f"Alignement : **{hero.alignement}**"
+                    if hasattr(hero, 'guilde'): details += f" | Guilde : **{hero.guilde}**"
+                    if hasattr(hero, 'culte'): details += f" | Culte : **{hero.culte}**"
+                    if hasattr(hero, 'clan'): details += f" | Clan : **{hero.clan}**"
+                    st.markdown(details)
+                    
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("PV", hero.pv)
+                    c2.metric("CA", hero.ca)
+                    c3.metric("Or", hero.po)
+                    
+                    with st.expander("Inventaire"):
+                        st.write(f"**Classique:** {hero.equipement_classique}")
+                        if hero.equipement_rare_offensif: st.write(f"**Attaque:** {hero.equipement_rare_offensif}")
+                        if hero.equipement_rare_defensif: st.write(f"**Défense:** {hero.equipement_rare_defensif}")
             
-            # Equipement dans des menus déroulants pour gagner de la place
-            with st.expander("⚔️ Équipement & Inventaire"):
-                st.markdown(f"**Classique:** {hero.equipement_classique}")
-                if hero.equipement_rare_offensif:
-                    st.markdown(f"**🔴 Offensif Rare:** {hero.equipement_rare_offensif}")
-                if hero.equipement_rare_defensif:
-                    st.markdown(f"**🛡️ Défensif Rare:** {hero.equipement_rare_defensif}")
-                if hero.equipement_rare_general:
-                    st.markdown(f"**✨ Général Rare:** {hero.equipement_rare_general}")
+            st.markdown("---") # Séparateur entre les groupes
