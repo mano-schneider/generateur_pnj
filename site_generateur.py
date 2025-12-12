@@ -216,6 +216,7 @@ class Pnj:
         self.niveau = niveau
         self.classe = classe
         self.alignement = random.choice(['LL', 'LN', 'NL', 'NN', 'NC', 'CN', 'CC'])
+        self.caractere = ''
         self.equipement_rare_offensif = []
         self.equipement_rare_defensif = []
         self.equipement_rare_general = []
@@ -226,6 +227,21 @@ class Pnj:
         self.modif_constitution = 0
         self.pv = 0
         self.ca = 0
+
+    def trait_de_caractere(self, alignement:str):
+        mapping_trait_de_caractere= {
+            'LL': ['Psychorigide', 'Veut être certain de n\'offenser personne', 'Dévoué à la garde', 'Honnête et fiable', 'Force tranquille', 'Amical et inspire le respect', 'Parano des chaotiques'],
+            'LN': ['Inquiet d\'enfreindre les règles', 'Pragmatique', 'Impartial', 'Rieur', 'Parano des chaotiques'],
+            'NL': ['Cherche à tempérer les plus loyaux que lui', 'déprimé face au chaos dans le monde', 'Suit les règles si ça l\'arrange'],
+            'NN': ['Un bon coup un mauvais coup', 'Équilibre avant tout', 'Indépendant', 'Imprévisible'],
+            'NC': ['Adore les jeux d\'argent', 'Libre penseur', 'Se moque de tout le monde', 'Imprévisible'],
+            'CN': ['Chaotique mais bon', 'Rackette les plus faible mais a peur des plus fort', 'Imprudent'],
+            'CC': ['Aime tabasser les enfants', 'Égoïste', 'Destructeur', 'Imprévisible et dangereux', 'Religieux fou']
+        }
+        self.caractere = random.sample(mapping_trait_de_caractere[alignement], 2)
+
+ 
+
 
 
     def lancer_carac(self):
@@ -526,6 +542,7 @@ def generer_pnj_objet(nom, niveau, classe):
     pnj.define_pv()
     pnj.define_equipement_rare()
     pnj.define_ca()
+    pnj.trait_de_caractere(pnj.alignement)
     
     return pnj
 
@@ -622,6 +639,7 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                     st.subheader(f"👤 {hero.nom}")
                     
                     # Détails (Alignement, Guilde...)
+                    st.info(f"🧠 **{hero.caractere}**")
                     details = f"Alignement : **{hero.alignement}**"
                     if hasattr(hero, 'guilde'): details += f" | Guilde : **{hero.guilde}**"
                     if hasattr(hero, 'culte'): details += f" | Culte : **{hero.culte}**"
