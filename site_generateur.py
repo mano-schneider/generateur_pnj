@@ -803,10 +803,10 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                         else:
                             st.warning("Pas de jets de protection définis.")
                     
-                    # --- AJOUT : BOUTON SAUVEGARDER ---
-                # On génère une clé unique pour éviter les bugs de boutons
-                unique_key = f"btn_save_{hero.nom}_{i}_{random.randint(0, 100000)}"
-                
-                if st.button("❤️ Sauvegarder", key=unique_key):
-                    st.session_state.favoris.append(hero)
-                    st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
+                        # --- AJOUT : BOUTON SAUVEGARDER ---
+                    # On génère une clé unique pour éviter les bugs de boutons
+                    unique_key = f"btn_save_{hero.nom}_{i}_{random.randint(0, 100000)}"
+                    
+                    if st.button("❤️ Sauvegarder", key=unique_key):
+                        st.session_state.favoris.append(hero)
+                        st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
