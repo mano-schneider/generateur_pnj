@@ -239,6 +239,7 @@ class Pnj:
             'CC': ['Aime tabasser les enfants', 'Égoïste', 'Destructeur', 'Imprévisible et dangereux', 'Religieux fou']
         }
         self.caractere = random.sample(mapping_trait_de_caractere[alignement], 2)
+        self.caractere = ' - '.join(self.caractere)
 
  
 
