@@ -1,60 +1,21 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import random
-
-
-# --- MOTEUR DE GÉNÉRATION DE NOMS ---
-def generer_nom_fantasy(classe_pnj):
-    # On définit des sonorités par "race/ambiance"
-    syllabes = {
-        'humain': { # Pour Voleur, Guerrier, Mage, Clerc
-            'debut': ['Al', 'Breg', 'Cal', 'Dar', 'El', 'Fen', 'Gor', 'Hald', 'Jar', 'Kel', 'Lor', 'Mar', 'Nor', 'Or', 'Pol', 'Quen', 'Rad', 'Sten', 'Tor', 'Val'],
-            'fin': ['aric', 'on', 'en', 'or', 'an', 'in', 'is', 'us', 'ath', 'el', 'win', 'ard', 'ric', 'mond', 'gard']
-        },
-        'elfe': {
-            'debut': ['Ael', 'Cael', 'Elar', 'Faen', 'Gala', 'Ilan', 'Laer', 'Mael', 'Nael', 'Paer', 'Rael', 'Sae', 'Tael', 'Vaer'],
-            'fin': ['a', 'as', 'ian', 'ion', 'iar', 'or', 'wyn', 'fiel', 'thil', 'luan', 'niel']
-        },
-        'nain': {
-            'debut': ['Bal', 'Bof', 'Dor', 'Dwal', 'Far', 'Gil', 'Gim', 'Kil', 'Mor', 'Nal', 'Nor', 'Oin', 'Thor', 'Thra', 'Ung'],
-            'fin': ['in', 'ur', 'ar', 'or', 'ik', 'ok', 'al', 'ol', 'im', 'am', 'ir']
-        },
-        'petite-gens': {
-            'debut': ['Bil', 'Bung', 'Dro', 'Fro', 'Mer', 'Mil', 'Per', 'Pip', 'Sam', 'Tol', 'Wil'],
-            'fin': ['bo', 'do', 'go', 'lo', 'mo', 'po', 'to', 'wise', 'ac', 'ic']
-        }
-    }
-
-    # 1. On détermine la race
-    classe_pnj = classe_pnj.lower()
-    if classe_pnj in ['elfe']:
-        categorie = 'elfe'
-    elif classe_pnj in ['nain']:
-        categorie = 'nain'
-    elif classe_pnj in ['petite-gens']:
-        categorie = 'petite-gens'
-    else:
-        categorie = 'humain'
-
-    # 2. Construction du nom
-    partie_1 = random.choice(syllabes[categorie]['debut'])
-    partie_2 = random.choice(syllabes[categorie]['fin'])
-    
-    return partie_1 + partie_2
-
-
-
 
 # ==========================================
 # 1. DONNÉES & CONFIGURATION
 # ==========================================
 
 st.set_page_config(page_title="Générateur PNJ D&D", page_icon="🐉", layout="wide")
-if 'favoris' not in st.session_state:
-    st.session_state.favoris = []
+
+# Initialisation des états (Mémoire)
+if 'favoris' not in st.session_state: st.session_state.favoris = []
+if 'file_attente' not in st.session_state: st.session_state.file_attente = []
+if 'resultats_temporaires' not in st.session_state: st.session_state.resultats_temporaires = []
+
 classes_dispo = ['voleur','guerrier','mage','clerc','nain','elfe','petite-gens']
 
-# --- dictionnaires d'équipement ---
+# --- DICTIONNAIRES D'ÉQUIPEMENT ---
 equip_off_niv_1_a_6 = {
     'voleur':['épée courte +1', 'arbalète + 1', 'baguette de foudre 5 dé 6 1 charge', 'parchemin de projectile magique 1 charge', '1 carreau de sommeil', 'un carreau enflammé (+3 dégats)'], 
     'guerrier':['espadon +1', 'arc long +1', 'potion de force (+2 force)'], 
@@ -64,7 +25,6 @@ equip_off_niv_1_a_6 = {
     'elfe':['épée longue +1', 'arc court +1', 'potion de dextérité (+2 dextérité)'], 
     'petite-gens':['épée courte +1', 'arc court +1', 'parchemin de controle de la nature 1 charge']
 }
-
 equip_def_niv_1_a_6 = {
     'voleur':['bouclier +1', 'armure de cuir +1', 'parchemin de bouclier 2 charges'], 
     'guerrier':['bouclier +1', 'armure de plaque +1', 'parchemin de bouclier 2 charges', 'anneau protection +1'], 
@@ -74,7 +34,6 @@ equip_def_niv_1_a_6 = {
     'elfe':['bouclier +1', 'armure de plaque +1', 'parchemin de bouclier 2 charges'], 
     'petite-gens':['bouclier +1', 'armure de plaque +1', 'parchemin de bouclier 2 charges']
 }
-
 equip_gen_niv_1_a_6 = {
     'voleur':['anneau d\'invisibilité', 'potion de forme gazeuse', 'potion de soins mineurs', 'potions de soins majeurs'], 
     'guerrier':['potion de rapidité', 'potion de croissance', 'potion de soins majeurs', 'potions de soins mineurs'], 
@@ -84,7 +43,6 @@ equip_gen_niv_1_a_6 = {
     'elfe':['potion de soins majeurs', 'potions de soins mineurs', 'parchemin de boule de feu 5dé6 1 charge'], 
     'petite-gens':['potion de soins majeurs', 'potions de soins mineurs', 'parchemin de langage des plantes']
 }
-
 equip_off_niv_7_ou_plus = {
     'voleur':[ 'épée courte +2 empoisonnée (2dégats par round pendant 10 rounds)', 'arbalette +2', '3 carreaux de sommeil', '3 carreaux empoisonnés', '3 carreaux enflammés'], 
     'guerrier': ['espadon +2 enflammé (+1dé6 dégats de feu)', 'arc long +2', '2 flèche de glace', 'flèche à tête chercheuse (+3 pour toucher)', 'espadon +1', 'parchemin de bénédiction 1 charge (+2+2)'], 
@@ -94,7 +52,6 @@ equip_off_niv_7_ou_plus = {
     'elfe':['épée longue +2', 'épée longue +1 de glace', 'arc court +2', 'baguette de foudre 7dé6 2charges'], 
     'petite-gens':['arc court +2', 'épée courte +2', 'épée courte +1 vampirique', 'parchemin de controle de la nature 3 charges']
 }
-
 equip_def_niv_7_ou_plus = {
     'voleur':['anneau d\'invisiblité', 'armure de cuir +2', 'bouclier +2', 'anneau de vol', 'amulette de protection contre le mal'], 
     'guerrier':['anneau d\'invisiblité', 'armure de plaque +2', 'bouclier +2', 'potion de résistance (5 dégats absorbés sur chaque coup)'], 
@@ -104,7 +61,6 @@ equip_def_niv_7_ou_plus = {
     'elfe':['anneau d\'invisiblité', 'armure de plaque +2', 'bouclier +2', 'anneau de vol'], 
     'petite-gens':['anneau d\'invisiblité', 'armure de plaque +2', 'bouclier +2', 'anneau de vol']
 }
-
 equip_gen_niv_7_ou_plus = {
     'voleur':['2 potions de soins mineurs', '2 potions de soins majeurs','potion de soins ultimes', 'potion de guérison totale', 'potion de rapidité'], 
     'guerrier':['2 potions de soins mineurs', '2 potions de soins majeurs','potion de soins ultimes', 'potion de guérison totale','potion de rapidité'], 
@@ -114,7 +70,6 @@ equip_gen_niv_7_ou_plus = {
     'elfe':['2 potions de soins mineurs', '2 potions de soins majeurs','potion de soins ultimes', 'potion de guérison totale','potion de rapidité'], 
     'petite-gens':['2 potions de soins mineurs', '2 potions de soins majeurs','potion de soins ultimes', 'potion de guérison totale','potion de rapidité']
 }
-
 equip_classique = {
     'voleur':['armure de cuir', 'épée courte', 'arbalète', 'bouclier'], 
     'guerrier':['armure de plaque', 'bouclier', 'arc long', 'espadon'], 
@@ -125,55 +80,38 @@ equip_classique = {
     'petite-gens':['armure de plaque', 'épée courte', 'bouclier', 'arc court']
 }
 
-# Reconstitution des dictionnaires assemblés
-equip_par_classe_niv_1_a_6 = {
-    'voleur':[equip_def_niv_1_a_6['voleur'], equip_gen_niv_1_a_6['voleur'], equip_off_niv_1_a_6['voleur']],
-    'guerrier':[equip_def_niv_1_a_6['guerrier'], equip_gen_niv_1_a_6['guerrier'], equip_off_niv_1_a_6['guerrier']],
-    'mage':[equip_def_niv_1_a_6['mage'], equip_gen_niv_1_a_6['mage'], equip_off_niv_1_a_6['mage']],
-    'clerc':[equip_def_niv_1_a_6['clerc'], equip_gen_niv_1_a_6['clerc'], equip_off_niv_1_a_6['clerc']],
-    'nain':[equip_def_niv_1_a_6['nain'], equip_gen_niv_1_a_6['nain'], equip_off_niv_1_a_6['nain']],
-    'elfe':[equip_def_niv_1_a_6['elfe'], equip_gen_niv_1_a_6['elfe'], equip_off_niv_1_a_6['elfe']],
-    'petite-gens':[equip_def_niv_1_a_6['petite-gens'], equip_gen_niv_1_a_6['petite-gens'], equip_off_niv_1_a_6['petite-gens']]
-}
-
-equip_par_classe_niv_7_ou_plus = {
-    'voleur':[equip_def_niv_7_ou_plus['voleur'], equip_gen_niv_7_ou_plus['voleur'], equip_off_niv_7_ou_plus['voleur']],
-    'guerrier':[equip_def_niv_7_ou_plus['guerrier'], equip_gen_niv_7_ou_plus['guerrier'], equip_off_niv_7_ou_plus['guerrier']],
-    'mage':[equip_def_niv_7_ou_plus['mage'], equip_gen_niv_7_ou_plus['mage'], equip_off_niv_7_ou_plus['mage']],
-    'clerc':[equip_def_niv_7_ou_plus['clerc'], equip_gen_niv_7_ou_plus['clerc'], equip_off_niv_7_ou_plus['clerc']],
-    'nain':[equip_def_niv_7_ou_plus['nain'], equip_gen_niv_7_ou_plus['nain'], equip_off_niv_7_ou_plus['nain']],
-    'elfe':[equip_def_niv_7_ou_plus['elfe'], equip_gen_niv_7_ou_plus['elfe'], equip_off_niv_7_ou_plus['elfe']],
-    'petite-gens':[equip_def_niv_7_ou_plus['petite-gens'], equip_gen_niv_7_ou_plus['petite-gens'], equip_off_niv_7_ou_plus['petite-gens']]
-}
+# Assemblage des dictionnaires
+equip_par_classe_niv_1_a_6 = {k: [equip_def_niv_1_a_6.get(k,[]), equip_gen_niv_1_a_6.get(k,[]), equip_off_niv_1_a_6.get(k,[])] for k in classes_dispo}
+equip_par_classe_niv_7_ou_plus = {k: [equip_def_niv_7_ou_plus.get(k,[]), equip_gen_niv_7_ou_plus.get(k,[]), equip_off_niv_7_ou_plus.get(k,[])] for k in classes_dispo}
 
 
 # ==========================================
 # 2. LOGIQUE MÉTIER
 # ==========================================
 
+def generer_nom_fantasy(classe_pnj):
+    syllabes = {
+        'humain': {'debut': ['Al', 'Breg', 'Cal', 'Dar', 'El', 'Fen', 'Gor', 'Hald'], 'fin': ['aric', 'on', 'en', 'or', 'an', 'in', 'us']},
+        'elfe': {'debut': ['Ael', 'Cael', 'Elar', 'Faen', 'Gala', 'Ilan'], 'fin': ['a', 'as', 'ian', 'ion', 'wyn', 'thil']},
+        'nain': {'debut': ['Bal', 'Bof', 'Dor', 'Dwal', 'Thor', 'Thra'], 'fin': ['in', 'ur', 'ar', 'or', 'ik', 'ok']},
+        'petite-gens': {'debut': ['Bil', 'Bung', 'Dro', 'Fro', 'Mer', 'Pip'], 'fin': ['bo', 'do', 'go', 'lo', 'mo', 'wise']}
+    }
+    classe_pnj = classe_pnj.lower()
+    cat = 'elfe' if 'elfe' in classe_pnj else 'nain' if 'nain' in classe_pnj else 'petite-gens' if 'petite' in classe_pnj else 'humain'
+    return random.choice(syllabes[cat]['debut']) + random.choice(syllabes[cat]['fin'])
+
 def lancer_pv(classe:str, nb_dés:int, modificateur=0):
     resultat=0
     classe = classe.lower().strip()
     for i in range(nb_dés):
-        if classe in ('voleur', 'mage'):
-            resultat += (random.randint(1,4) + modificateur)
-        elif classe in ('guerrier', 'nain'):
-            resultat += (random.randint(1,8) + modificateur)
-        elif classe in ('clerc', 'elfe', 'petite-gens'):
-            resultat += (random.randint(1,6) + modificateur)
-    if resultat <= 0:
-        resultat = 1
+        if classe in ('voleur', 'mage'): resultat += (random.randint(1,4) + modificateur)
+        elif classe in ('guerrier', 'nain'): resultat += (random.randint(1,8) + modificateur)
+        elif classe in ('clerc', 'elfe', 'petite-gens'): resultat += (random.randint(1,6) + modificateur)
+    if resultat <= 0: resultat = 1
     return resultat
 
-
 def lancers_bonus(classe:str, carac:dict):
-    """
-    classe : classe du pnj
-    carac : carac du pnj déjà tirés
-
-    renvoie les carac modifiées avec le dé bonus
-    """
-    mapping_lancers_bonus = {
+    mapping = {
         'voleur': lambda c : c.update({'D':c['D']+random.randint(1,4)}),
         'guerrier': lambda c : c.update({'F':c['F']+random.randint(1,4)}),
         'mage': lambda c : c.update({'I':c['I']+random.randint(1,4)}),
@@ -182,34 +120,33 @@ def lancers_bonus(classe:str, carac:dict):
         'elfe': lambda c : c.update({'I': c['I']+random.randint(1,2), 'S':c['S']+random.randint(1,2)}),
         'petite-gens': lambda c : c.update({'C':c['C']+random.randint(1,2), 'Ch':c['Ch']+random.randint(1,2)})
     }
-    mapping_lancers_bonus[classe](carac)
+    mapping.get(classe, lambda c: None)(carac)
     return carac
 
 def lancer_carac(classe:str):
-    carac = {'F':0, 'I':0, 'S':0, 'D':0, 'C':0, 'Ch':0}
-    modif_constitution = 0
-
-    for i in carac:
-        carac[i]= random.randint(1,6) + random.randint(1,6) + random.randint(1,6)
+    carac = {k:0 for k in ['F','I','S','D','C','Ch']}
+    for i in carac: carac[i] = sum(random.randint(1,6) for _ in range(3))
         
     carac = lancers_bonus(classe, carac)
+    modif_constitution = 0
+    
     for i in carac:
-        if carac[i] ==22: carac[i] = '22(+5)'
-        elif carac[i] >= 20: carac[i] = f'{str(carac[i])}(+4)'
-        elif carac[i] >= 18: carac[i] = f'{str(carac[i])}(+3)'
-        elif carac[i] >= 16: carac[i] = f'{str(carac[i])}(+2)'
-        elif carac[i] >= 14: carac[i] = f'{str(carac[i])}(+1)'
-        elif carac[i]<= 4: carac[i] = f'{str(carac[i])}(-3)'
-        elif carac[i] <= 6: carac[i] = f'{str(carac[i])}(-2)'
-        elif carac[i] <= 8: carac[i] = f'{str(carac[i])}(-1)'
-        else: carac[i] = str(carac[i])
-    try:
-        if int(carac['C'].split('(')[0]) >= 14 or int(carac['C'].split('(')[0]) <= 8:
-            temporaire = carac['C'].split('(')[1]
-            modif_propre = temporaire.replace(')', '')
-            modif_constitution = int(modif_propre)
-    except:
-        pass
+        val = carac[i]
+        bonus = 0
+        if val == 22: bonus = 5
+        elif val >= 20: bonus = 4
+        elif val >= 18: bonus = 3
+        elif val >= 16: bonus = 2
+        elif val >= 14: bonus = 1
+        elif val <= 3: bonus = -3
+        elif val <= 5: bonus = -2
+        elif val <= 8: bonus = -1
+
+        if i == 'C': modif_constitution = bonus
+        
+        signe = "+" if bonus > 0 else ""
+        carac[i] = f"{val}({signe}{bonus})" if bonus != 0 else str(val)
+
     return carac, modif_constitution
 
 class Pnj:
@@ -222,60 +159,43 @@ class Pnj:
         self.equipement_rare_offensif = []
         self.equipement_rare_defensif = []
         self.equipement_rare_general = []
-        self.equipement_classique = equip_classique[self.classe]
-        self.po = self.niveau*random.randint(100, 300) if self.niveau <= 6 else self.niveau*random.randint(300, 700) if self.niveau <= 8 else self.niveau*random.randint(700, 1000)
-        self.carac = 0
-        self.jp = 0
+        self.equipement_classique = list(equip_classique[self.classe]) # Copie liste
+        self.po = self.niveau*random.randint(100, 300)
+        self.carac = {}
+        self.jp = {}
         self.modif_constitution = 0
         self.pv = 0
         self.ca = 0
 
     def trait_de_caractere(self, alignement:str):
-        mapping_trait_de_caractere= {
-            'LL': ['Psychorigide', 'Veut être certain de n\'offenser personne', 'Dévoué à la garde', 'Honnête et fiable', 'Force tranquille', 'Amical et inspire le respect', 'Parano des chaotiques'],
-            'LN': ['Inquiet d\'enfreindre les règles', 'Pragmatique', 'Impartial', 'Rieur', 'Parano des chaotiques'],
-            'NL': ['Cherche à tempérer les plus loyaux que lui', 'déprimé face au chaos dans le monde', 'Suit les règles si ça l\'arrange'],
-            'NN': ['Un bon coup un mauvais coup', 'Équilibre avant tout', 'Indépendant', 'Imprévisible'],
-            'NC': ['Adore les jeux d\'argent', 'Libre penseur', 'Se moque de tout le monde', 'Imprévisible'],
-            'CN': ['Chaotique mais bon', 'Rackette les plus faible mais a peur des plus fort', 'Imprudent'],
-            'CC': ['Aime tabasser les enfants', 'Égoïste', 'Destructeur', 'Imprévisible et dangereux', 'Religieux fou']
+        mapping = {
+            'LL': ['Psychorigide', 'Dévoué', 'Honnête'], 'LN': ['Pragmatique', 'Impartial'],
+            'NL': ['Tempéré', 'Déprimé'], 'NN': ['Indépendant', 'Imprévisible'],
+            'NC': ['Libre penseur', 'Joueur'], 'CN': ['Bon vivant', 'Imprudent'],
+            'CC': ['Égoïste', 'Destructeur']
         }
-        self.caractere = random.sample(mapping_trait_de_caractere[alignement], 2)
-        self.caractere = ' - '.join(self.caractere)
+        traits = mapping.get(alignement, ['Neutre'])
+        self.caractere = ' - '.join(random.sample(traits, min(2, len(traits))))
 
- 
-
-
-
-    def lancer_carac(self):
+    def lancer_stats_completes(self):
         self.carac, self.modif_constitution = lancer_carac(self.classe)
+        self.define_pv()
+        self.define_equipement_rare()
+        self.define_ca()
+        self.trait_de_caractere(self.alignement)
 
     def define_pv(self):
-        if not self.carac:
-            self.lancer_carac()
         self.pv = lancer_pv(self.classe, self.niveau + 1 if self.niveau<=9 else 10, self.modif_constitution)
-        if self.niveau>9:
-            niveaux_en_plus = self.niveau - 9
-            self.pv += niveaux_en_plus*(1+self.modif_constitution)
+        if self.niveau>9: self.pv += (self.niveau - 9)*(1+self.modif_constitution)
 
     def define_equipement_rare(self):
-        chance = {'off' : random.randint(1,100), 'def' : random.randint(1,100), 'gen' : random.randint(1,100)}
+        source = equip_par_classe_niv_1_a_6[self.classe] if self.niveau <= 6 else equip_par_classe_niv_7_ou_plus[self.classe]
+        nb_items = 2 if self.niveau <= 6 else 3
         
-        # Sélection des listes selon niveau
-        if self.niveau <= 6:
-            source = equip_par_classe_niv_1_a_6[self.classe]
-            nb_items = 2
-        else:
-            source = equip_par_classe_niv_7_ou_plus[self.classe]
-            nb_items = 3
-
-        if chance['off'] <= 20:
-             self.equipement_rare_offensif.extend(random.sample(source[2], nb_items))
-        if chance['def'] <= 20:           
-             self.equipement_rare_defensif.extend(random.sample(source[0], nb_items))
-        if chance['gen'] <= 20:
-             self.equipement_rare_general.extend(random.sample(source[1], nb_items))
-
+        chance = {k: random.randint(1,100) for k in ['off','def','gen']}
+        if chance['off'] <= 20: self.equipement_rare_offensif.extend(random.sample(source[2], nb_items))
+        if chance['def'] <= 20: self.equipement_rare_defensif.extend(random.sample(source[0], nb_items))
+        if chance['gen'] <= 20: self.equipement_rare_general.extend(random.sample(source[1], nb_items))
         
         self.equipement_rare_offensif = ' - '.join(self.equipement_rare_offensif)
         self.equipement_rare_defensif = ' - '.join(self.equipement_rare_defensif)
@@ -283,491 +203,251 @@ class Pnj:
         self.equipement_classique = ' - '.join(self.equipement_classique)
 
     def define_ca(self):
-        # Base CA
         base_ca = {'guerrier':3, 'nain':3, 'clerc':4, 'mage':4, 'elfe':2, 'petite-gens':2, 'voleur':6}
         self.ca = base_ca.get(self.classe, 9)
-
-
-        # On découpe la string créée dans define_equipement_rare
         if self.equipement_rare_defensif:
-            objets = self.equipement_rare_defensif.split(' - ')
-            for i in objets:
+            for i in self.equipement_rare_defensif.split(' - '):
                 if '+' in i:
-                    try:
-                        # On cherche le chiffre après le +
-                        valeur = int(i.split('+')[1].split()[0]) # .split()[0] gère les textes après le chiffre
-                        self.ca -= valeur
-                    except:
-                        continue # Si ça foire, on ignore l'objet au lieu de crasher
+                    try: self.ca -= int(i.split('+')[1].split()[0])
+                    except: continue
 
-# --- Sous-classes ---
+# --- Sous-classes (avec la logique des JP incluse) ---
 class Voleur(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe='voleur')
-        self.guilde = random.choice(['Specularium','Kelven','Luln','Selenica'])
-        self.alignement = random.choice(['CC','CN','NC','NN'])
-        self.jp = {
-    'Rayon mortel, poison':13,
-    'Baguette magique':14,
-    'Paralysie ou pétrification':13,
-    'Souffle du dragon':16,
-    'Sceptre, baton ou sort':15
-} if self.niveau <= 4 else {
-    'Rayon mortel, poison':11,
-    'Baguette magique':12,
-    'Paralysie ou pétrification':11,
-    'Souffle du dragon':14,
-    'Sceptre, baton ou sort':13
-} if self.niveau <= 8 else {
-    'Rayon mortel, poison':9,
-    'Baguette magique':10,
-    'Paralysie ou pétrification':9,
-    'Souffle du dragon':12,
-    'Sceptre, baton ou sort':11
-} if self.niveau <= 12 else {
-    'Rayon mortel, poison':7,
-    'Baguette magique':8,
-    'Paralysie ou pétrification':7,
-    'Souffle du dragon':10,
-    'Sceptre, baton ou sort':9
-} if self.niveau <= 16 else {
-    'Rayon mortel, poison':5,
-    'Baguette magique':6,
-    'Paralysie ou pétrification':5,
-    'Souffle du dragon':8,
-    'Sceptre, baton ou sort':7
-}
+        super().__init__(nom, niveau, 'voleur')
+        self.guilde = random.choice(['Specularium','Kelven'])
+        if self.niveau<=4: self.jp={'Mort':13,'Baguettes':14,'Paralysie':13,'Souffle':16,'Sorts':15}
+        elif self.niveau<=8: self.jp={'Mort':11,'Baguettes':12,'Paralysie':11,'Souffle':14,'Sorts':13}
+        else: self.jp={'Mort':9,'Baguettes':10,'Paralysie':9,'Souffle':12,'Sorts':11}
 
 class Guerrier(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe='guerrier')
-        self.jp = {
-    'Rayon mortel, poison':12,
-    'Baguette magique':13,
-    'Paralysie ou pétrification':14,
-    'Souffle du dragon':15,
-    'Sceptre, baton ou sort':16
-} if self.niveau <= 3 else {
-    'Rayon mortel, poison':10,
-    'Baguette magique':11,
-    'Paralysie ou pétrification':12,
-    'Souffle du dragon':13,
-    'Sceptre, baton ou sort':14
-} if self.niveau <= 6 else {
-    'Rayon mortel, poison':8,
-    'Baguette magique':9,
-    'Paralysie ou pétrification':10,
-    'Souffle du dragon':11,
-    'Sceptre, baton ou sort':12
-} if self.niveau <= 9 else {
-    'Rayon mortel, poison':6,
-    'Baguette magique':7,
-    'Paralysie ou pétrification':8,
-    'Souffle du dragon':9,
-    'Sceptre, baton ou sort':10
-} if self.niveau <= 12 else {
-    'Rayon mortel, poison':6,
-    'Baguette magique':6,
-    'Paralysie ou pétrification':7,
-    'Souffle du dragon':8,
-    'Sceptre, baton ou sort':9
-}
+        super().__init__(nom, niveau, 'guerrier')
+        if self.niveau<=3: self.jp={'Mort':12,'Baguettes':13,'Paralysie':14,'Souffle':15,'Sorts':16}
+        elif self.niveau<=6: self.jp={'Mort':10,'Baguettes':11,'Paralysie':12,'Souffle':13,'Sorts':14}
+        else: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':11,'Sorts':12}
 
 class Clerc(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe='clerc')
-        self.culte = 'Balgor' if self.alignement in ('LL','LN') else 'Idriss' if self.alignement in ('NL', 'NN', 'NC') else 'Chardros'
-        self.jp = {
-    'Rayon mortel, poison':11,
-    'Baguette magique':12,
-    'Paralysie ou pétrification':14,
-    'Souffle du dragon':16,
-    'Sceptre, baton ou sort':15
-} if self.niveau <= 4 else {
-    'Rayon mortel, poison':9,
-    'Baguette magique':10,
-    'Paralysie ou pétrification':12,
-    'Souffle du dragon':14,
-    'Sceptre, baton ou sort':13
-} if self.niveau <= 8 else {
-    'Rayon mortel, poison':7,
-    'Baguette magique':8,
-    'Paralysie ou pétrification':10,
-    'Souffle du dragon':12,
-    'Sceptre, baton ou sort':11
-} if self.niveau <= 12 else {
-    'Rayon mortel, poison':6,
-    'Baguette magique':7,
-    'Paralysie ou pétrification':8,
-    'Souffle du dragon':10,
-    'Sceptre, baton ou sort':9
-} if self.niveau <= 16 else {
-    'Rayon mortel, poison':5,
-    'Baguette magique':6,
-    'Paralysie ou pétrification':6,
-    'Souffle du dragon':8,
-    'Sceptre, baton ou sort':7
-}
-        
+        super().__init__(nom, niveau, 'clerc')
+        self.culte = 'Idriss'
+        if self.niveau<=4: self.jp={'Mort':11,'Baguettes':12,'Paralysie':14,'Souffle':16,'Sorts':15}
+        elif self.niveau<=8: self.jp={'Mort':9,'Baguettes':10,'Paralysie':12,'Souffle':14,'Sorts':13}
+        else: self.jp={'Mort':7,'Baguettes':8,'Paralysie':10,'Souffle':12,'Sorts':11}
+
 class Mage(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe = 'mage')
-        self.jp = {
-    'Rayon mortel, poison':13,
-    'Baguette magique':14,
-    'Paralysie ou pétrification':13,
-    'Souffle du dragon':16,
-    'Sceptre, baton ou sort':15
-} if self.niveau <= 5 else {
-    'Rayon mortel, poison':11,
-    'Baguette magique':12,
-    'Paralysie ou pétrification':11,
-    'Souffle du dragon':14,
-    'Sceptre, baton ou sort':12
-} if self.niveau <= 10 else {
-    'Rayon mortel, poison':9,
-    'Baguette magique':10,
-    'Paralysie ou pétrification':9,
-    'Souffle du dragon':12,
-    'Sceptre, baton ou sort':9
-} if self.niveau <= 15 else {
-    'Rayon mortel, poison':7,
-    'Baguette magique':8,
-    'Paralysie ou pétrification':7,
-    'Souffle du dragon':10,
-    'Sceptre, baton ou sort':6
-} if self.niveau <= 20 else {
-    'Rayon mortel, poison':5,
-    'Baguette magique':6,
-    'Paralysie ou pétrification':5,
-    'Souffle du dragon':8,
-    'Sceptre, baton ou sort':4
-}
+        super().__init__(nom, niveau, 'mage')
+        if self.niveau<=5: self.jp={'Mort':13,'Baguettes':14,'Paralysie':13,'Souffle':16,'Sorts':15}
+        elif self.niveau<=10: self.jp={'Mort':11,'Baguettes':12,'Paralysie':11,'Souffle':14,'Sorts':12}
+        else: self.jp={'Mort':9,'Baguettes':10,'Paralysie':9,'Souffle':12,'Sorts':9}
 
 class Nain(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe = 'nain')
-        self.clan = random.choice(['Poing Sanglant','Arche de Jade', 'Forge de Roïd'])
-        self.jp = {
-    'Rayon mortel, poison':8,
-    'Baguette magique':9,
-    'Paralysie ou pétrification':10,
-    'Souffle du dragon':13,
-    'Sceptre, baton ou sort':12
-} if self.niveau <= 3 else {
-    'Rayon mortel, poison':6,
-    'Baguette magique':7,
-    'Paralysie ou pétrification':8,
-    'Souffle du dragon':10,
-    'Sceptre, baton ou sort':9
-} if self.niveau <= 6 else {
-    'Rayon mortel, poison':4,
-    'Baguette magique':5,
-    'Paralysie ou pétrification':6,
-    'Souffle du dragon':7,
-    'Sceptre, baton ou sort':6
-} if self.niveau <= 9 else {
-    'Rayon mortel, poison':2,
-    'Baguette magique':3,
-    'Paralysie ou pétrification':4,
-    'Souffle du dragon':4,
-    'Sceptre, baton ou sort':3
-} 
+        super().__init__(nom, niveau, 'nain')
+        if self.niveau<=3: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':13,'Sorts':12}
+        elif self.niveau<=6: self.jp={'Mort':6,'Baguettes':7,'Paralysie':8,'Souffle':10,'Sorts':9}
+        else: self.jp={'Mort':4,'Baguettes':5,'Paralysie':6,'Souffle':7,'Sorts':6}
 
 class Elfe(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe = 'elfe')
-        self.clan = random.choice(['Croix Verte', 'Trèfle rouge', 'Flamme d\'or'])
-        self.jp = {
-    'Rayon mortel, poison':12,
-    'Baguette magique':13,
-    'Paralysie ou pétrification':13,
-    'Souffle du dragon':15,
-    'Sceptre, baton ou sort':15
-} if self.niveau <= 3 else {
-    'Rayon mortel, poison':8,
-    'Baguette magique':10,
-    'Paralysie ou pétrification':10,
-    'Souffle du dragon':11,
-    'Sceptre, baton ou sort':11
-} if self.niveau <= 6 else {
-    'Rayon mortel, poison':4,
-    'Baguette magique':7,
-    'Paralysie ou pétrification':7,
-    'Souffle du dragon':7,
-    'Sceptre, baton ou sort':7
-} if self.niveau <= 9 else {
-    'Rayon mortel, poison':2,
-    'Baguette magique':4,
-    'Paralysie ou pétrification':4,
-    'Souffle du dragon':3,
-    'Sceptre, baton ou sort':3
-} 
+        super().__init__(nom, niveau, 'elfe')
+        if self.niveau<=3: self.jp={'Mort':12,'Baguettes':13,'Paralysie':13,'Souffle':15,'Sorts':15}
+        elif self.niveau<=6: self.jp={'Mort':8,'Baguettes':10,'Paralysie':10,'Souffle':11,'Sorts':11}
+        else: self.jp={'Mort':4,'Baguettes':7,'Paralysie':7,'Souffle':7,'Sorts':7}
 
 class Petite_gens(Pnj):
     def __init__(self, nom, niveau):
-        super().__init__(nom, niveau, classe = 'petite-gens')
-        self.alignement = random.choice(['LL','LN','NL','NN'])
-        self.clan = random.choice(['Huttes Jumelles'])
-        self.jp = {
-    'Rayon mortel, poison':8,
-    'Baguette magique':9,
-    'Paralysie ou pétrification':10,
-    'Souffle du dragon':13,
-    'Sceptre, baton ou sort':12
-} if self.niveau <= 3 else {
-    'Rayon mortel, poison':5,
-    'Baguette magique':6,
-    'Paralysie ou pétrification':7,
-    'Souffle du dragon':8,
-    'Sceptre, baton ou sort':9
-} if self.niveau <= 6 else {
-    'Rayon mortel, poison':2,
-    'Baguette magique':3,
-    'Paralysie ou pétrification':4,
-    'Souffle du dragon':5,
-    'Sceptre, baton ou sort':4
-} 
+        super().__init__(nom, niveau, 'petite-gens')
+        if self.niveau<=3: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':13,'Sorts':12}
+        elif self.niveau<=6: self.jp={'Mort':5,'Baguettes':6,'Paralysie':7,'Souffle':8,'Sorts':9}
+        else: self.jp={'Mort':2,'Baguettes':3,'Paralysie':4,'Souffle':5,'Sorts':4}
 
 def generer_pnj_objet(nom, niveau, classe):
-    # Factory function qui retourne l'objet au lieu d'afficher
-    classe_map = {
-        'voleur': Voleur, 'guerrier': Guerrier, 'clerc': Clerc,
-        'mage': Mage, 'nain': Nain, 'elfe': Elfe, 'petite-gens': Petite_gens
-    }
-    
-    # Création de l'instance
-    pnj_class = classe_map.get(classe)
-    pnj = pnj_class(nom, niveau)
-    
-    # Lancers de dés
-    pnj.lancer_carac()
-    pnj.define_pv()
-    pnj.define_equipement_rare()
-    pnj.define_ca()
-    pnj.trait_de_caractere(pnj.alignement)
-    
+    classe_map = {'voleur': Voleur, 'guerrier': Guerrier, 'clerc': Clerc, 'mage': Mage, 'nain': Nain, 'elfe': Elfe, 'petite-gens': Petite_gens}
+    pnj = classe_map.get(classe, Guerrier)(nom, niveau)
     return pnj
 
-
 # ==========================================
-# 3. INTERFACE STREAMLIT (MODE "PANIER")
+# 3. INTERFACE STREAMLIT
 # ==========================================
 
 st.title("🛡️ Générateur de PNJ - D&D")
 
-# --- Initialisation de la mémoire (Le Panier) ---
-if 'file_attente' not in st.session_state:
-    st.session_state.file_attente = []
-
-# --- SIDEBAR (Configuration) ---
+# --- SIDEBAR: Config & Panier ---
 st.sidebar.header("1. Configurer un groupe")
-
-# On utilise un formulaire pour ne pas recharger la page à chaque changement de chiffre
 with st.sidebar.form("config_form"):
-    classe_choisie = st.selectbox("Classe", classes_dispo)
-    niveau_choisi = st.number_input("Niveau", 1, 20, 1)
-    nb_pnj = st.number_input("Quantité", 1, 20, 1)
+    classe = st.selectbox("Classe", classes_dispo)
+    niveau = st.number_input("Niveau", 1, 20, 1)
+    quantite = st.number_input("Quantité", 1, 20, 1)
+    auto_nom = st.checkbox("Noms aléatoires ?", True)
+    nom_base = st.text_input("Nom de base", "Inconnu") if not auto_nom else "Auto"
     
-    # Options supplémentaires
-    utiliser_nom_aleatoire = st.checkbox("Noms aléatoires ?", value=True)
-    if not utiliser_nom_aleatoire:
-        nom_base = st.text_input("Nom de base", "Inconnu")
-    else:
-        nom_base = "Aléatoire"
+    if st.form_submit_button("➕ Ajouter ce groupe"):
+        st.session_state.file_attente.append({
+            'classe': classe, 'niveau': niveau, 'quantite': quantite,
+            'nom_base': nom_base, 'auto_nom': auto_nom
+        })
+        st.success("Ajouté !")
 
-    # Bouton d'ajout
-    bouton_ajout = st.form_submit_button("➕ Ajouter ce groupe")
-
-if bouton_ajout:
-    # On ajoute la commande dans la mémoire
-    st.session_state.file_attente.append({
-        'classe': classe_choisie,
-        'niveau': niveau_choisi,
-        'quantite': nb_pnj,
-        'nom_base': nom_base,
-        'auto_nom': utiliser_nom_aleatoire
-    })
-    st.success(f"Ajouté : {nb_pnj} {classe_choisie}(s) Niv.{niveau_choisi}")
-
-# --- SIDEBAR (Affichage du Panier) ---
 st.sidebar.markdown("---")
-st.sidebar.header("2. File d'attente")
-
-if len(st.session_state.file_attente) == 0:
-    st.sidebar.info("Aucun groupe préparé.")
-else:
-    # On affiche la liste des commandes
+st.sidebar.header(f"2. File d'attente ({len(st.session_state.file_attente)})")
+if st.session_state.file_attente:
     for i, cmd in enumerate(st.session_state.file_attente):
-        st.sidebar.text(f"{i+1}. {cmd['quantite']}x {cmd['classe']} (Niv.{cmd['niveau']})")
-    
-    # Bouton pour vider si on s'est trompé
-    if st.sidebar.button("🗑️ Tout effacer"):
+        st.sidebar.text(f"{cmd['quantite']}x {cmd['classe']} (Niv.{cmd['niveau']})")
+    if st.sidebar.button("🗑️ Vider File"):
         st.session_state.file_attente = []
         st.rerun()
 
-# --- AJOUT : SECTION FAVORIS & IMPORT/EXPORT ---
+# --- SIDEBAR: Favoris & Import/Export ---
 st.sidebar.markdown("---")
 st.sidebar.header(f"❤️ Favoris ({len(st.session_state.favoris)})")
 
-# A. EXPORT (Télécharger)
+# Export CSV
 if st.session_state.favoris:
-    # 1. On transforme les objets PNJ en données texte pour le CSV
-    data_export = []
+    data_exp = []
     for p in st.session_state.favoris:
-        data_export.append({
+        data_exp.append({
             "Nom": p.nom, "Classe": p.classe, "Niveau": p.niveau,
-            "PV": p.pv, "CA": p.ca, "PO": p.po, "Alignement": p.alignement,
-            "Caractère": getattr(p, 'caractere', ''),
+            "PV": p.pv, "CA": p.ca, "PO": p.po, "Alignement": p.alignement, "Caractère": p.caractere,
             "F": p.carac.get('F'), "I": p.carac.get('I'), "S": p.carac.get('S'),
             "D": p.carac.get('D'), "C": p.carac.get('C'), "Ch": p.carac.get('Ch'),
             "Eq_Base": p.equipement_classique,
-            "Eq_Rare_Off": p.equipement_rare_offensif,
-            "Eq_Rare_Def": p.equipement_rare_defensif,
-            "Eq_Rare_Gen": p.equipement_rare_general
+            "Eq_Rare_Off": p.equipement_rare_offensif, "Eq_Rare_Def": p.equipement_rare_defensif, "Eq_Rare_Gen": p.equipement_rare_general
         })
-    
-    df_fav = pd.DataFrame(data_export)
-    csv_data = df_fav.to_csv(index=False).encode('utf-8')
-    
-    st.sidebar.download_button("📥 Télécharger (CSV)", csv_data, "mes_pnj.csv", "text/csv")
-    
-    if st.sidebar.button("🗑️ Vider la liste"):
+    csv = pd.DataFrame(data_exp).to_csv(index=False).encode('utf-8')
+    st.sidebar.download_button("📥 Télécharger CSV", csv, "mes_pnj.csv", "text/csv")
+    if st.sidebar.button("🗑️ Vider Favoris"):
         st.session_state.favoris = []
         st.rerun()
 
-# B. IMPORT (Recharger)
+# Import CSV
 st.sidebar.markdown("---")
-st.sidebar.header("📂 Recharger PNJ")
-fichier = st.sidebar.file_uploader("Fichier CSV", type=["csv"])
-
+st.sidebar.header("📂 Recharger")
+fichier = st.sidebar.file_uploader("CSV", type=["csv"])
 if fichier and st.sidebar.button("Valider Import"):
     try:
-        df_in = pd.read_csv(fichier)
-        count = 0
-        for _, row in df_in.iterrows():
-            # 1. On recrée l'objet vide avec ta fonction existante
-            # (Assure-toi que ta fonction 'generer_pnj_objet' est bien définie plus haut)
-            pnj = generer_pnj_objet(row['Nom'], int(row['Niveau']), row['Classe'])
-            
-            # 2. On écrase les stats par celles du fichier
-            pnj.pv = int(row['PV'])
-            pnj.ca = int(row['CA'])
-            pnj.po = int(row['PO'])
-            pnj.alignement = row['Alignement']
-            if pd.notna(row['Caractère']): pnj.caractere = row['Caractère']
-            
-            # 3. On remplit les caractéristiques
-            pnj.carac = {
-                'F': str(row['F']), 'I': str(row['I']), 'S': str(row['S']),
-                'D': str(row['D']), 'C': str(row['C']), 'Ch': str(row['Ch'])
-            }
-            
-            # 4. On remplit l'équipement
-            pnj.equipement_classique = str(row['Eq_Base'])
-            # On gère les NaN (vides) pour l'équipement rare
-            pnj.equipement_rare_offensif = str(row['Eq_Rare_Off']) if pd.notna(row['Eq_Rare_Off']) else ""
-            pnj.equipement_rare_defensif = str(row['Eq_Rare_Def']) if pd.notna(row['Eq_Rare_Def']) else ""
-            pnj.equipement_rare_general = str(row['Eq_Rare_Gen']) if pd.notna(row['Eq_Rare_Gen']) else ""
-            
-            # 5. On ajoute aux favoris
+        df = pd.read_csv(fichier)
+        for _, r in df.iterrows():
+            pnj = generer_pnj_objet(r['Nom'], int(r['Niveau']), r['Classe'])
+            pnj.pv, pnj.ca, pnj.po, pnj.alignement = int(r['PV']), int(r['CA']), int(r['PO']), r['Alignement']
+            if pd.notna(r['Caractère']): pnj.caractere = r['Caractère']
+            pnj.carac = {'F':str(r['F']), 'I':str(r['I']), 'S':str(r['S']), 'D':str(r['D']), 'C':str(r['C']), 'Ch':str(r['Ch'])}
+            pnj.equipement_classique = str(r['Eq_Base'])
+            pnj.equipement_rare_offensif = str(r['Eq_Rare_Off']) if pd.notna(r['Eq_Rare_Off']) else ""
+            pnj.equipement_rare_defensif = str(r['Eq_Rare_Def']) if pd.notna(r['Eq_Rare_Def']) else ""
+            pnj.equipement_rare_general = str(r['Eq_Rare_Gen']) if pd.notna(r['Eq_Rare_Gen']) else ""
             st.session_state.favoris.append(pnj)
-            count += 1
-            
-        st.success(f"{count} PNJ rechargés !")
+        st.success("Rechargé !")
         st.rerun()
-        
-    except Exception as e:
-        st.sidebar.error(f"Erreur lors de l'import : {e}")
+    except Exception as e: st.sidebar.error(f"Erreur: {e}")
 
 # ==========================================
-# 5. ZONE PRINCIPALE (AFFICHAGE PERSISTANT)
+# 4. ZONE PRINCIPALE (GÉNÉRATION & AFFICHAGE)
 # ==========================================
 
-# 1. On crée une mémoire pour les résultats s'ils n'existent pas
-if 'resultats_temporaires' not in st.session_state:
+# A. BOUTON DE GÉNÉRATION
+if st.button("🎲 GÉNÉRER TOUT", type="primary"):
     st.session_state.resultats_temporaires = []
-
-# 2. LOGIQUE DE GÉNÉRATION (Calculs uniquement)
-if st.button("🎲 GÉNÉRER TOUTE LA FILE D'ATTENTE", type="primary"):
-    
-    # On vide les anciens résultats pour mettre les nouveaux
-    st.session_state.resultats_temporaires = []
-    
-    if not st.session_state.file_attente:
-        st.error("Ajoute d'abord des groupes dans la barre latérale !")
-    
+    if not st.session_state.file_attente: st.error("Ajoute des groupes !")
     else:
-        # On génère tout et on stocke dans la mémoire tampon
         for cmd in st.session_state.file_attente:
-            groupe_data = {
-                'titre': f"⚔️ Groupe : {cmd['qt']} {cmd['classe'].capitalize()}(s) Niveau {cmd['niveau']}",
-                'qt': cmd['qt'],
-                'liste_pnj': []
-            }
-            
-            for i in range(cmd['qt']):
-                nom_final = generer_nom_fantasy(cmd['classe']) if cmd['auto'] else f"{cmd['nom']} {i+1}"
-                
-                # Création de l'objet PNJ
-                hero = generer_pnj_objet(nom_final, cmd['niveau'], cmd['classe'])
-                hero.lancer_stats_complètes()
-                
-                # On ajoute le héros dans la liste du groupe
-                groupe_data['liste_pnj'].append(hero)
-            
-            # On ajoute le groupe complet à la mémoire
-            st.session_state.resultats_temporaires.append(groupe_data)
+            groupe = {'titre': f"⚔️ {cmd['quantite']} {cmd['classe']} Niv.{cmd['niveau']}", 'quantite': cmd['quantite'], 'pnjs': []}
+            for i in range(cmd['quantite']):
+                nom = generer_nom_fantasy(cmd['classe']) if cmd['auto_nom'] else f"{cmd['nom_base']} {i+1}"
+                hero = generer_pnj_objet(nom, cmd['niveau'], cmd['classe'])
+                hero.lancer_stats_completes()
+                groupe['pnjs'].append(hero)
+            st.session_state.resultats_temporaires.append(groupe)
 
-# 3. LOGIQUE D'AFFICHAGE (Se lance tout le temps si des résultats existent)
+# B. AFFICHAGE DES NOUVEAUX RÉSULTATS (TEMPORAIRES)
 if st.session_state.resultats_temporaires:
-    
-    # On parcourt ce qu'il y a en mémoire
-    for groupe in st.session_state.resultats_temporaires:
-        st.markdown(f"### {groupe['titre']}")
-        
-        cols = st.columns(min(groupe['qt'], 3))
-        
-        # On récupère les héros stockés
-        for i, hero in enumerate(groupe['liste_pnj']):
-            
-            with cols[i % 3].container(border=True):
-                st.subheader(f"{hero.nom}")
+    for i_grp, grp in enumerate(st.session_state.resultats_temporaires):
+        st.markdown(f"### {grp['titre']}")
+        cols = st.columns(min(grp['quantite'], 3))
+        for i_hero, hero in enumerate(grp['pnjs']):
+            with cols[i_hero % 3].container(border=True):
+                st.subheader(hero.nom)
                 st.info(f"🧠 {hero.caractere}")
                 
-                # Stats
+                # --- AJOUT : DÉTAILS RP (Alignement, Clan, Guilde...) ---
+                details = f"⚖️ **Alignement :** {hero.alignement}"
+                # On vérifie dynamiquement si l'attribut existe pour l'afficher
+                if getattr(hero, 'guilde', None): details += f"  \n🗡️ **Guilde :** {hero.guilde}"
+                if getattr(hero, 'clan', None):   details += f"  \n🌲 **Clan :** {hero.clan}"
+                if getattr(hero, 'culte', None):  details += f"  \n🙏 **Culte :** {hero.culte}"
+                st.markdown(details)
+                # -------------------------------------------------------
+
                 c1, c2, c3 = st.columns(3)
-                c1.metric("PV", hero.pv)
-                c2.metric("CA", hero.ca)
-                c3.metric("Or", hero.po)
+                c1.metric("❤️ PV", hero.pv); c2.metric("🛡️ CA", hero.ca); c3.metric("💰 Or", hero.po)
                 
-                # Caracs
                 with st.expander("📊 Caractéristiques", expanded=True):
                     sc = st.columns(6)
-                    labels = ['F','I','S','D','C','Ch']
-                    for idx, k in enumerate(labels):
-                        sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k,'?')}</small></div>", unsafe_allow_html=True)
+                    for idx, k in enumerate(['F','I','S','D','C','Ch']):
+                        sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k)}</small></div>", unsafe_allow_html=True)
                 
-                # Sauvegardes
-                with st.expander("🛡️ Sauvegardes"):
+                with st.expander("🛡️ Jets de protection"):
                     sj = st.columns(5)
-                    map_jp = [('Mort','☠️'), ('Baguettes','🪄'), ('Paralysie','🗿'), ('Souffle','🐲'), ('Sorts','✨')]
-                    for idx, (cle, icon) in enumerate(map_jp):
-                         sj[idx].markdown(f"<div style='text-align:center; font-size:12px'>{icon}<br><b>{hero.jp.get(cle,'-')}</b></div>", unsafe_allow_html=True)
-
-                # Inventaire
+                    for idx, (k, icon) in enumerate([('Mort','☠️'),('Baguettes','🪄'),('Paralysie','🗿'),('Souffle','🐲'),('Sorts','✨')]):
+                        sj[idx].markdown(f"<div style='text-align:center;font-size:12px'>{icon}<br><b>{hero.jp.get(k,'-')}</b></div>", unsafe_allow_html=True)
+                
                 with st.expander("🎒 Inventaire"):
                     st.caption(f"Base: {hero.equipement_classique}")
-                    if hero.equipement_rare_offensif: st.write(f"⚔️ {hero.equipement_rare_offensif}")
-                    if hero.equipement_rare_defensif: st.write(f"🛡️ {hero.equipement_rare_defensif}")
-                    if hero.equipement_rare_general: st.write(f"✨ {hero.equipement_rare_general}")
+                    if hero.equipement_rare_offensif: st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
+                    if hero.equipement_rare_defensif: st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
+                    if hero.equipement_rare_general: st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
                 
                 st.divider()
-
-                # --- BOUTON SAUVEGARDER ---
-                # Comme les héros sont en mémoire, le bouton reste là au rechargement !
-                unique_key = f"save_{hero.nom}_{i}_{random.randint(0,100000)}"
                 
-                if st.button("❤️ Sauvegarder", key=unique_key):
+                stable_key = f"btn_save_{i_grp}_{i_hero}_{hero.nom}"
+                if st.button("❤️ Sauvegarder", key=stable_key):
                     st.session_state.favoris.append(hero)
-                    st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
+                    st.toast("Sauvegardé !", icon="✅")
+                    st.rerun()
+
+# C. AFFICHAGE DES PNJ SAUVEGARDÉS / IMPORTÉS (PERMANENTS)
+if st.session_state.favoris:
+    st.markdown("---")
+    st.header(f"📂 PNJ Sauvegardés / Importés ({len(st.session_state.favoris)})")
+    
+    cols_fav = st.columns(3)
+    
+    for i, hero in enumerate(st.session_state.favoris):
+        with cols_fav[i % 3].container(border=True):
+            st.subheader(f"⭐ {hero.nom}")
+            st.caption(f"{hero.classe.capitalize()} Niv.{hero.niveau}")
+            st.info(f"🧠 {hero.caractere}")
+            
+            # --- AJOUT : DÉTAILS RP (Alignement, Clan, Guilde...) ---
+            details = f"⚖️ **Alignement :** {hero.alignement}"
+            if getattr(hero, 'guilde', None): details += f"  \n🗡️ **Guilde :** {hero.guilde}"
+            if getattr(hero, 'clan', None):   details += f"  \n🌲 **Clan :** {hero.clan}"
+            if getattr(hero, 'culte', None):  details += f"  \n🙏 **Culte :** {hero.culte}"
+            st.markdown(details)
+            # -------------------------------------------------------
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("❤️ PV", hero.pv); c2.metric("🛡️ CA", hero.ca); c3.metric("💰 Or", hero.po)
+            
+            with st.expander("📊 Caractéristiques", expanded=False):
+                sc = st.columns(6)
+                for idx, k in enumerate(['F','I','S','D','C','Ch']):
+                    sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k)}</small></div>", unsafe_allow_html=True)
+            
+            with st.expander("🛡️ Jets de protection"):
+                sj = st.columns(5)
+                for idx, (k, icon) in enumerate([('Mort','☠️'),('Baguettes','🪄'),('Paralysie','🗿'),('Souffle','🐲'),('Sorts','✨')]):
+                    sj[idx].markdown(f"<div style='text-align:center;font-size:12px'>{icon}<br><b>{hero.jp.get(k,'-')}</b></div>", unsafe_allow_html=True)
+            
+            with st.expander("🎒 Inventaire"):
+                st.caption(f"Base: {hero.equipement_classique}")
+                if hero.equipement_rare_offensif: st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
+                if hero.equipement_rare_defensif: st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
+                if hero.equipement_rare_general: st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
+            
+            st.divider()
+            
+            if st.button("❌ Supprimer", key=f"del_fav_{i}_{hero.nom}"):
+                st.session_state.favoris.pop(i)
+                st.rerun()
