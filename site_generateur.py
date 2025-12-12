@@ -680,133 +680,94 @@ if fichier and st.sidebar.button("Valider Import"):
     except Exception as e:
         st.sidebar.error(f"Erreur lors de l'import : {e}")
 
-# --- ZONE PRINCIPALE (Génération) ---
+# ==========================================
+# 5. ZONE PRINCIPALE (AFFICHAGE PERSISTANT)
+# ==========================================
 
-# Le bouton pour lancer tout ce qu'il y a dans la file d'attente
-if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
+# 1. On crée une mémoire pour les résultats s'ils n'existent pas
+if 'resultats_temporaires' not in st.session_state:
+    st.session_state.resultats_temporaires = []
+
+# 2. LOGIQUE DE GÉNÉRATION (Calculs uniquement)
+if st.button("🎲 GÉNÉRER TOUTE LA FILE D'ATTENTE", type="primary"):
+    
+    # On vide les anciens résultats pour mettre les nouveaux
+    st.session_state.resultats_temporaires = []
     
     if not st.session_state.file_attente:
         st.error("Ajoute d'abord des groupes dans la barre latérale !")
     
     else:
-        # On boucle sur chaque groupe de la file d'attente
+        # On génère tout et on stocke dans la mémoire tampon
         for cmd in st.session_state.file_attente:
+            groupe_data = {
+                'titre': f"⚔️ Groupe : {cmd['qt']} {cmd['classe'].capitalize()}(s) Niveau {cmd['niveau']}",
+                'qt': cmd['qt'],
+                'liste_pnj': []
+            }
             
-            st.markdown(f"### ⚔️ Groupe : {cmd['quantite']} {cmd['classe'].capitalize()}(s) Niveau {cmd['niveau']}")
-            
-            # Création des colonnes pour ce groupe spécifique
-            cols = st.columns(min(cmd['quantite'], 3))
-            
-            # On boucle pour créer le nombre de PNJ demandé dans ce groupe
-            for i in range(cmd['quantite']):
+            for i in range(cmd['qt']):
+                nom_final = generer_nom_fantasy(cmd['classe']) if cmd['auto'] else f"{cmd['nom']} {i+1}"
                 
-                # Gestion du nom
-                if cmd['auto_nom']:
-                    nom_final = generer_nom_fantasy(cmd['classe'])
-                else:
-                    nom_final = f"{cmd['nom_base']} {i+1}" if cmd['quantite'] > 1 else cmd['nom_base']
-                
-                # Création
+                # Création de l'objet PNJ
                 hero = generer_pnj_objet(nom_final, cmd['niveau'], cmd['classe'])
+                hero.lancer_stats_complètes()
                 
-                # Affichage
-                # On utilise cols[i % 3] pour remplir les colonnes grille par grille
-                # Affichage
-                with cols[i % 3].container(border=True):
-                    st.subheader(f"👤 {hero.nom}")
-                    
-                    # Détails (Alignement, Guilde...)
-                    st.info(f"🧠 **{hero.caractere}**")
-                    details = f"Alignement : **{hero.alignement}**"
-                    if hasattr(hero, 'guilde'): details += f" | Guilde : **{hero.guilde}**"
-                    if hasattr(hero, 'culte'): details += f" | Culte : **{hero.culte}**"
-                    if hasattr(hero, 'clan'): details += f" | Clan : **{hero.clan}**"
-                    st.markdown(details)
-                    
-                    # Métriques principales (PV, CA, PO)
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("❤️ PV", hero.pv)
-                    c2.metric("🛡️ CA", hero.ca)
-                    c3.metric("💰 PO", hero.po)
-                    
-                    st.divider() # Petite ligne de séparation
-                    
-                    # ---  CARACTÉRISTIQUES EN COLONNES ---
-                    with st.expander("📊 Caractéristiques", expanded=True): 
-                        # expanded=True permet de le laisser ouvert par défaut (change en False pour fermer)
-                        
-                        s1, s2, s3, s4, s5, s6 = st.columns(6)
-                        
-                        # On affiche chaque stat dans sa petite colonne
-                        # hero.carac est un dictionnaire {'F': '18(+3)', ...}
-                        s1.markdown(f"**FOR**<br>{hero.carac['F']}", unsafe_allow_html=True)
-                        s2.markdown(f"**INT**<br>{hero.carac['I']}", unsafe_allow_html=True)
-                        s3.markdown(f"**SAG**<br>{hero.carac['S']}", unsafe_allow_html=True)
-                        s4.markdown(f"**DEX**<br>{hero.carac['D']}", unsafe_allow_html=True)
-                        s5.markdown(f"**CON**<br>{hero.carac['C']}", unsafe_allow_html=True)
-                        s6.markdown(f"**CHA**<br>{hero.carac['Ch']}", unsafe_allow_html=True)
+                # On ajoute le héros dans la liste du groupe
+                groupe_data['liste_pnj'].append(hero)
+            
+            # On ajoute le groupe complet à la mémoire
+            st.session_state.resultats_temporaires.append(groupe_data)
 
-                    # --- INVENTAIRE ---
-                    with st.expander("🎒 Inventaire"):
-                        if hero.equipement_classique:
-                            st.write(f"**Base:** {hero.equipement_classique}")
-                        
-                        # On affiche seulement si la liste n'est pas vide
-                        if hero.equipement_rare_offensif: 
-                            st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
-                        
-                        if hero.equipement_rare_defensif: 
-                            st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
-                        
-                        if hero.equipement_rare_general: 
-                            st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
+# 3. LOGIQUE D'AFFICHAGE (Se lance tout le temps si des résultats existent)
+if st.session_state.resultats_temporaires:
+    
+    # On parcourt ce qu'il y a en mémoire
+    for groupe in st.session_state.resultats_temporaires:
+        st.markdown(f"### {groupe['titre']}")
+        
+        cols = st.columns(min(groupe['qt'], 3))
+        
+        # On récupère les héros stockés
+        for i, hero in enumerate(groupe['liste_pnj']):
+            
+            with cols[i % 3].container(border=True):
+                st.subheader(f"{hero.nom}")
+                st.info(f"🧠 {hero.caractere}")
+                
+                # Stats
+                c1, c2, c3 = st.columns(3)
+                c1.metric("PV", hero.pv)
+                c2.metric("CA", hero.ca)
+                c3.metric("Or", hero.po)
+                
+                # Caracs
+                with st.expander("📊 Caractéristiques", expanded=True):
+                    sc = st.columns(6)
+                    labels = ['F','I','S','D','C','Ch']
+                    for idx, k in enumerate(labels):
+                        sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k,'?')}</small></div>", unsafe_allow_html=True)
+                
+                # Sauvegardes
+                with st.expander("🛡️ Sauvegardes"):
+                    sj = st.columns(5)
+                    map_jp = [('Mort','☠️'), ('Baguettes','🪄'), ('Paralysie','🗿'), ('Souffle','🐲'), ('Sorts','✨')]
+                    for idx, (cle, icon) in enumerate(map_jp):
+                         sj[idx].markdown(f"<div style='text-align:center; font-size:12px'>{icon}<br><b>{hero.jp.get(cle,'-')}</b></div>", unsafe_allow_html=True)
 
+                # Inventaire
+                with st.expander("🎒 Inventaire"):
+                    st.caption(f"Base: {hero.equipement_classique}")
+                    if hero.equipement_rare_offensif: st.write(f"⚔️ {hero.equipement_rare_offensif}")
+                    if hero.equipement_rare_defensif: st.write(f"🛡️ {hero.equipement_rare_defensif}")
+                    if hero.equipement_rare_general: st.write(f"✨ {hero.equipement_rare_general}")
+                
+                st.divider()
 
-                    # --- JETS DE PROTECTION ---
-                    with st.expander("🛡️ Jets de Protection"):
-                        
-                        # Sécurité : on vérifie si le dico 'jp' existe
-                        if hasattr(hero, 'jp'):
-                            
-                            c1, c2, c3, c4, c5 = st.columns(5)
-                            
-                            # Fonction locale pour afficher joliment (Icône + Label court + Valeur)
-                            def afficher_stat(colonne, icone, label_court, cle_dico):
-                                valeur = hero.jp.get(cle_dico, "-")
-                                # On utilise du HTML pour centrer et grossir le chiffre
-                                colonne.markdown(f"""
-                                    <div style="text-align: center;">
-                                        <div style="font-size: 20px;">{icone}</div>
-                                        <div style="font-size: 10px; color: grey;">{label_court}</div>
-                                        <div style="font-size: 22px; font-weight: bold;">{valeur}</div>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-
-                            # --- MAPPING ---
-                            # On associe tes clés longues à l'affichage colonne
-                            
-                            # 1. Mort / Poison
-                            afficher_stat(c1, "☠️", "R.Mort/Poison", 'Rayon mortel, poison')
-                            
-                            # 2. Baguettes
-                            afficher_stat(c2, "🪄", "Baguettes", 'Baguette magique')
-                            
-                            # 3. Paralysie
-                            afficher_stat(c3, "🗿", "Paralysie", 'Paralysie ou pétrification')
-                            
-                            # 4. Souffle
-                            afficher_stat(c4, "🐲", "Souffle", 'Souffle du dragon')
-                            
-                            # 5. Sorts
-                            afficher_stat(c5, "✨", "Sorts", 'Sceptre, baton ou sort')
-                            
-                        else:
-                            st.warning("Pas de jets de protection définis.")
-                    
-                        # --- AJOUT : BOUTON SAUVEGARDER ---
-                    # On génère une clé unique pour éviter les bugs de boutons
-                    unique_key = f"btn_save_{hero.nom}_{i}_{random.randint(0, 100000)}"
-                    
-                    if st.button("❤️ Sauvegarder", key=unique_key):
-                        st.session_state.favoris.append(hero)
-                        st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
+                # --- BOUTON SAUVEGARDER ---
+                # Comme les héros sont en mémoire, le bouton reste là au rechargement !
+                unique_key = f"save_{hero.nom}_{i}_{random.randint(0,100000)}"
+                
+                if st.button("❤️ Sauvegarder", key=unique_key):
+                    st.session_state.favoris.append(hero)
+                    st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
