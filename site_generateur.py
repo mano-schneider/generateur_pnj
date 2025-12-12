@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 import random
 
@@ -49,7 +50,8 @@ def generer_nom_fantasy(classe_pnj):
 # ==========================================
 
 st.set_page_config(page_title="Générateur PNJ D&D", page_icon="🐉", layout="wide")
-
+if 'favoris' not in st.session_state:
+    st.session_state.favoris = []
 classes_dispo = ['voleur','guerrier','mage','clerc','nain','elfe','petite-gens']
 
 # --- dictionnaires d'équipement ---
@@ -604,6 +606,80 @@ else:
         st.session_state.file_attente = []
         st.rerun()
 
+# --- AJOUT : SECTION FAVORIS & IMPORT/EXPORT ---
+st.sidebar.markdown("---")
+st.sidebar.header(f"❤️ Favoris ({len(st.session_state.favoris)})")
+
+# A. EXPORT (Télécharger)
+if st.session_state.favoris:
+    # 1. On transforme les objets PNJ en données texte pour le CSV
+    data_export = []
+    for p in st.session_state.favoris:
+        data_export.append({
+            "Nom": p.nom, "Classe": p.classe, "Niveau": p.niveau,
+            "PV": p.pv, "CA": p.ca, "PO": p.po, "Alignement": p.alignement,
+            "Caractère": getattr(p, 'caractere', ''),
+            "F": p.carac.get('F'), "I": p.carac.get('I'), "S": p.carac.get('S'),
+            "D": p.carac.get('D'), "C": p.carac.get('C'), "Ch": p.carac.get('Ch'),
+            "Eq_Base": p.equipement_classique,
+            "Eq_Rare_Off": p.equipement_rare_offensif,
+            "Eq_Rare_Def": p.equipement_rare_defensif,
+            "Eq_Rare_Gen": p.equipement_rare_general
+        })
+    
+    df_fav = pd.DataFrame(data_export)
+    csv_data = df_fav.to_csv(index=False).encode('utf-8')
+    
+    st.sidebar.download_button("📥 Télécharger (CSV)", csv_data, "mes_pnj.csv", "text/csv")
+    
+    if st.sidebar.button("🗑️ Vider la liste"):
+        st.session_state.favoris = []
+        st.rerun()
+
+# B. IMPORT (Recharger)
+st.sidebar.markdown("---")
+st.sidebar.header("📂 Recharger PNJ")
+fichier = st.sidebar.file_uploader("Fichier CSV", type=["csv"])
+
+if fichier and st.sidebar.button("Valider Import"):
+    try:
+        df_in = pd.read_csv(fichier)
+        count = 0
+        for _, row in df_in.iterrows():
+            # 1. On recrée l'objet vide avec ta fonction existante
+            # (Assure-toi que ta fonction 'generer_pnj_objet' est bien définie plus haut)
+            pnj = generer_pnj_objet(row['Nom'], int(row['Niveau']), row['Classe'])
+            
+            # 2. On écrase les stats par celles du fichier
+            pnj.pv = int(row['PV'])
+            pnj.ca = int(row['CA'])
+            pnj.po = int(row['PO'])
+            pnj.alignement = row['Alignement']
+            if pd.notna(row['Caractère']): pnj.caractere = row['Caractère']
+            
+            # 3. On remplit les caractéristiques
+            pnj.carac = {
+                'F': str(row['F']), 'I': str(row['I']), 'S': str(row['S']),
+                'D': str(row['D']), 'C': str(row['C']), 'Ch': str(row['Ch'])
+            }
+            
+            # 4. On remplit l'équipement
+            pnj.equipement_classique = str(row['Eq_Base'])
+            # On gère les NaN (vides) pour l'équipement rare
+            pnj.equipement_rare_offensif = str(row['Eq_Rare_Off']) if pd.notna(row['Eq_Rare_Off']) else ""
+            pnj.equipement_rare_defensif = str(row['Eq_Rare_Def']) if pd.notna(row['Eq_Rare_Def']) else ""
+            pnj.equipement_rare_general = str(row['Eq_Rare_Gen']) if pd.notna(row['Eq_Rare_Gen']) else ""
+            
+            # 5. On ajoute aux favoris
+            st.session_state.favoris.append(pnj)
+            count += 1
+            
+        st.success(f"{count} PNJ rechargés !")
+        st.rerun()
+        
+    except Exception as e:
+        st.sidebar.error(f"Erreur lors de l'import : {e}")
+
 # --- ZONE PRINCIPALE (Génération) ---
 
 # Le bouton pour lancer tout ce qu'il y a dans la file d'attente
@@ -684,7 +760,16 @@ if st.button("🎲 GÉNÉRER TOUTE LA LISTE", type="primary"):
                         
                         if hero.equipement_rare_general: 
                             st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
-                    
+
+                    # --- AJOUT : BOUTON SAUVEGARDER ---
+                # On génère une clé unique pour éviter les bugs de boutons
+                unique_key = f"btn_save_{hero.nom}_{i}_{random.randint(0, 100000)}"
+                
+                if st.button("❤️ Sauvegarder", key=unique_key):
+                    st.session_state.favoris.append(hero)
+                    st.toast(f"{hero.nom} ajouté aux favoris !", icon="✅")
+
+
                     # --- JETS DE PROTECTION ---
                     with st.expander("🛡️ Jets de Protection"):
                         
