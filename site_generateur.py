@@ -163,20 +163,44 @@ def lancer_pv(classe:str, nb_dés:int, modificateur=0):
         resultat = 1
     return resultat
 
-def lancer_carac():
+
+def lancers_bonus(classe:str, carac:dict):
+    """
+    classe : classe du pnj
+    carac : carac du pnj déjà tirés
+
+    renvoie les carac modifiées avec le dé bonus
+    """
+    mapping_lancers_bonus = {
+        'voleur': lambda c : c.update({'D':c['D']+random.randint(1,4)}),
+        'guerrier': lambda c : c.update({'F':c['F']+random.randint(1,4)}),
+        'mage': lambda c : c.update({'I':c['I']+random.randint(1,4)}),
+        'clerc': lambda c : c.update({'S':c['S']+random.randint(1,4)}),
+        'nain': lambda c : c.update({'F':c['F']+random.randint(1,2), 'C':c['C']+random.randint(1,2)}),
+        'elfe': lambda c : c.update({'I': c['I']+random.randint(1,2), 'S':c['S']+random.randint(1,2)}),
+        'petite-gens': lambda c : c.update({'C':c['C']+random.randint(1,2), 'Ch':c['Ch']+random.randint(1,2)})
+    }
+    mapping_lancers_bonus[classe](carac)
+    return carac
+
+def lancer_carac(classe:str):
     carac = {'F':0, 'I':0, 'S':0, 'D':0, 'C':0, 'Ch':0}
     modif_constitution = 0
 
     for i in carac:
         carac[i]= random.randint(1,6) + random.randint(1,6) + random.randint(1,6)
-        if carac[i] ==18: carac[i] = '18(+3)'
+        
+    carac = lancers_bonus(classe, carac)
+    for i in carac:
+        if carac[i] ==22: carac[i] = '22(+5)'
+        elif carac[i] >= 20: carac[i] = f'{str(carac[i])}(+4)'
+        elif carac[i] >= 18: carac[i] = f'{str(carac[i])}(+3)'
         elif carac[i] >= 16: carac[i] = f'{str(carac[i])}(+2)'
         elif carac[i] >= 14: carac[i] = f'{str(carac[i])}(+1)'
         elif carac[i]<= 4: carac[i] = f'{str(carac[i])}(-3)'
         elif carac[i] <= 6: carac[i] = f'{str(carac[i])}(-2)'
         elif carac[i] <= 8: carac[i] = f'{str(carac[i])}(-1)'
         else: carac[i] = str(carac[i])
-
     try:
         if int(carac['C'].split('(')[0]) >= 14 or int(carac['C'].split('(')[0]) <= 8:
             temporaire = carac['C'].split('(')[1]
@@ -205,7 +229,7 @@ class Pnj:
 
 
     def lancer_carac(self):
-        self.carac, self.modif_constitution = lancer_carac()
+        self.carac, self.modif_constitution = lancer_carac(self.classe)
 
     def define_pv(self):
         if not self.carac:
