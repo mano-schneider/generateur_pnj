@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import weakref
+import streamlit.components.v1 as components
 
 
 # ==========================================
@@ -156,6 +157,64 @@ def lancer_carac(classe:str):
 
 
 
+def ajouter_raccourci_clavier():
+    components.html("""
+    <script>
+    const doc = window.parent.document;
+    doc.addEventListener('keydown', function(e) {
+        
+        // --- 1. Raccourci GLOBAL : Touche 'P' pour Passer un Round ---
+        // Ne fonctionne que si on N'EST PAS en train d'écrire dans un champ
+        if (e.key.toLowerCase() === 'p') {
+            if (doc.activeElement.tagName !== 'INPUT' && doc.activeElement.tagName !== 'TEXTAREA') {
+                const buttons = doc.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    if (btn.innerText.includes('Passer un Round')) {
+                        btn.click();
+                    }
+                });
+            }
+        }
+
+        // --- 2. Raccourcis CONTEXTUELS : 'D' (Dégâts) et 'S' (Soins) ---
+        // Ne fonctionnent QUE si on est dans un input (celui du montant PV)
+        if (doc.activeElement.tagName === 'INPUT') {
+            
+            let keyword = null;
+            if (e.key.toLowerCase() === 'd') keyword = 'Dégâts';
+            if (e.key.toLowerCase() === 's') keyword = 'Soins';
+
+            if (keyword) {
+                // On cherche le bouton correspondant À CÔTÉ de l'input actif.
+                // On remonte de quelques niveaux parents pour trouver le conteneur commun (le popover)
+                let parent = doc.activeElement.parentElement;
+                let foundBtn = null;
+                
+                // On remonte jusqu'à 6 niveaux max pour trouver le bouton voisin
+                for(let i=0; i<6; i++) {
+                    if(!parent) break;
+                    
+                    // On cherche le bouton dans ce parent
+                    let potentialBtns = parent.querySelectorAll('button');
+                    for(let btn of potentialBtns) {
+                        if(btn.innerText.includes(keyword)) {
+                            foundBtn = btn;
+                            break;
+                        }
+                    }
+                    if(foundBtn) break; // Trouvé !
+                    parent = parent.parentElement; // Sinon on monte d'un cran
+                }
+                
+                if(foundBtn) {
+                    e.preventDefault(); // Empêche d'écrire la lettre 'd' ou 's' dans la case
+                    foundBtn.click();
+                }
+            }
+        }
+    });
+    </script>
+    """, height=0, width=0)
 
 
 
@@ -207,7 +266,24 @@ class Poison(Effet):
             self.cible.vivant = False
 
 
-        
+class Paralysie(Effet):
+
+    def __init__(self, duree:int, nom:str, cible:Pnj):
+        super().__init__(duree, nom='Paralysie', cible=cible)
+    
+
+class Benediction(Effet):
+
+    def __init__(self, duree:int, nom:str, cible:Pnj):
+        super().__init__(duree, nom='Benediction', cible=cible)
+
+
+class Invisibilité(Effet):
+
+    def __init__(self, duree:int, nom:str, cible:Pnj):
+        super().__init__(duree, nom='Invisibilité', cible=cible)
+
+
 
 
 
@@ -294,7 +370,7 @@ class Pnj:
     def recevoir_effet(self, effet:str, durée_tours:str):
         #faire un dict de mapping
         effet = effet.lower().strip()
-        mapping_effet = {'poison': Poison, 'autre': AutreEffet}
+        mapping_effet = {'poison': Poison, 'autre': AutreEffet, 'paralysie': Paralysie, 'benediction': Benediction, 'invisibilité': Invisibilité}
 
         e = {effet: mapping_effet[effet](durée_tours, effet, self)}
         self.effet.update(e)
@@ -379,27 +455,44 @@ def generer_pnj_objet(nom, niveau, classe):
 
 st.title("🛡️ Générateur de PNJ - D&D")
 
+
+ajouter_raccourci_clavier()
+
 col_time, col_info = st.columns([1, 4])
 with col_time:
     # On fait passer un "Round" (la plus petite unité)
-    if st.button("⏳ Passer un Round", type="primary", help="Fait avancer le temps de 1 Round (1/3 de Tour)."):
+    if st.button("⏳ Passer un Round", type="primary", help="Fait avancer le temps de 1 Round."):
         
-        tous_les_pnj = []
-        tous_les_pnj.extend(st.session_state.favoris)
+        # On utilise un set d'IDs (mémoire) pour ne pas traiter deux fois le même objet
+        pnj_traites = set()
+        
+        # Fonction helper pour traiter une liste sans doublons
+        def traiter_liste_pnj(liste_pnj):
+            compteur_local = 0
+            for pnj in liste_pnj:
+                # Si on a déjà traité cet objet précis (id(pnj)), on passe
+                if id(pnj) in pnj_traites:
+                    continue
+                
+                # On marque cet objet comme traité
+                pnj_traites.add(id(pnj))
+                
+                if pnj.vivant and hasattr(pnj, 'effet') and pnj.effet:
+                    effets_actifs = list(pnj.effet.values())
+                    for effet in effets_actifs:
+                        effet.faire_effet() 
+                        effet.duree -= 1 
+                        compteur_local += 1
+                    pnj.nettoyage_effet()
+            return compteur_local
+
+        # 1. Traitement des favoris
+        compteur_effets = traiter_liste_pnj(st.session_state.favoris)
+        
+        # 2. Traitement des résultats temporaires
         if st.session_state.resultats_temporaires:
             for grp in st.session_state.resultats_temporaires:
-                tous_les_pnj.extend(grp['pnjs'])
-        
-        compteur_effets = 0
-        
-        for pnj in tous_les_pnj:
-            if pnj.vivant and hasattr(pnj, 'effet') and pnj.effet:
-                effets_actifs = list(pnj.effet.values())
-                for effet in effets_actifs:
-                    effet.faire_effet() 
-                    effet.duree -= 1 # On enlève 1 round à la durée totale
-                    compteur_effets += 1
-                pnj.nettoyage_effet()
+                compteur_effets += traiter_liste_pnj(grp['pnjs'])
         
         if compteur_effets > 0:
             st.toast(f"Round terminé ! {compteur_effets} effets appliqués.", icon="⚔️")
@@ -409,7 +502,7 @@ with col_time:
         st.rerun()
 
 with col_info:
-    st.info("ℹ️ **Rappel :** 1 Tour de jeu = 3 Rounds. Le bouton fait avancer de **1 Round**.")
+    st.info("ℹ️ **Rappel :** Utiliser **p** pour **passer un round**.")
 
 st.divider()
 
@@ -451,7 +544,7 @@ if st.session_state.favoris:
         carac = p.carac if isinstance(p.carac, dict) else {}
         data_exp.append({
             "Nom": p.nom, "Classe": p.classe, "Niveau": p.niveau,
-            "PV": p.pv, "PV_Max": getattr(p, 'pv_max', p.pv), # Ajout PV Max export
+            "PV": p.pv, "PV_Max": getattr(p, 'pv_max', p.pv), 
             "CA": p.ca, "PO": p.po, "Alignement": p.alignement, "Caractère": p.caractere,
             "F": carac.get('F'), "I": carac.get('I'), "S": carac.get('S'),
             "D": carac.get('D'), "C": carac.get('C'), "Ch": carac.get('Ch'),
@@ -497,14 +590,25 @@ def afficher_carte_pnj(hero, i, context_key):
     with st.container(border=True):
         # 1. En-tête et Statut
         col_titre, col_statut = st.columns([3, 1])
+        
         with col_titre:
-            st.subheader(hero.nom)
+            # On divise le titre en 2 : Nom à gauche, Bouton modif à droite
+            c_nom, c_edit = st.columns([5, 1])
+            with c_nom:
+                st.subheader(hero.nom)
+            with c_edit:
+                # Le petit bouton crayon qui ouvre un menu
+                with st.popover("✏️", help="Modifier le nom"):
+                    new_name = st.text_input("Nouveau nom", value=hero.nom, key=f"input_ren_{context_key}")
+                    if st.button("Valider", key=f"btn_ren_{context_key}"):
+                        hero.nom = new_name
+                        st.rerun()
+            
             st.caption(f"{hero.classe.capitalize()} Niv.{hero.niveau}")
+            
         with col_statut:
             if hero.pv <= 0: st.markdown("💀 **MORT**")
             else: st.markdown("🟢 **VIVANT**")
-
-        st.info(f"🧠 {hero.caractere}")
         
         # 2. Détails RP
         details = f"⚖️ **Alignement :** {hero.alignement}"
@@ -516,10 +620,27 @@ def afficher_carte_pnj(hero, i, context_key):
         st.divider()
 
         # 3. Métriques
-        c1, c2, c3 = st.columns(3)
-        c1.metric("❤️ PV", f"{hero.pv}/{getattr(hero, 'pv_max', hero.pv)}")
-        c2.metric("🛡️ CA", hero.ca)
-        c3.metric("💰 Or", hero.po)
+        # 3. Métriques (PV avec gestion manuelle)
+        col_pv, col_ca, col_or = st.columns(3)
+        
+        # Colonne PV transformée
+        with col_pv:
+            st.metric("❤️ PV", f"{hero.pv}/{getattr(hero, 'pv_max', hero.pv)}")
+            
+            # Gestion manuelle des PV (Petit formulaire inline)
+            # On utilise un popover (plus propre) ou un expander mini
+            with st.popover("Modif. PV"):
+                valeur_pv = st.number_input("Montant", min_value=0, value=0, key=f"input_pv_{context_key}")
+                c_minus, c_plus = st.columns(2)
+                if c_minus.button("➖ Dégâts", key=f"btn_degats_{context_key}"):
+                    hero.perdre_pv(valeur_pv)
+                    st.rerun()
+                if c_plus.button("➕ Soins", key=f"btn_soins_{context_key}"):
+                    hero.gagner_pv(valeur_pv)
+                    st.rerun()
+
+        col_ca.metric("🛡️ CA", hero.ca)
+        col_or.metric("💰 Or", hero.po)
         
         # 4. Caractéristiques & Jets
         with st.expander("📊 Caractéristiques", expanded=False):
@@ -530,7 +651,7 @@ def afficher_carte_pnj(hero, i, context_key):
         
         with st.expander("🛡️ Jets de protection"):
             sj = st.columns(5)
-            # CORRECTION : On utilise les clés exactes définies dans tes classes PNJ
+
             liste_jp = [
                 ('Rayon mortel, poison', '☠️'),
                 ('Baguette magique', '🪄'),
@@ -568,7 +689,7 @@ def afficher_carte_pnj(hero, i, context_key):
         with st.expander("➕ Ajouter un effet"):
             with st.form(key=f"form_effet_{context_key}"):
                 # Choix du type
-                choix_effet = st.selectbox("Type d'effet", ["Poison", "Autre"])
+                choix_effet = st.selectbox("Type d'effet", ["Poison", "Autre", 'Invisibilité', 'Paralysie', 'Benediction'])
                 
                 # Saisie en TOURS (converti en rounds par la classe Effet)
                 duree_tours = st.number_input("Durée (en Tours)", min_value=1, value=1, help="1 Tour = 3 Rounds")
@@ -576,7 +697,7 @@ def afficher_carte_pnj(hero, i, context_key):
                 # Case Dégâts qui n'apparait (logiquement) que pour le Poison
                 degats_input = 0
                 if choix_effet == "Poison":
-                    degats_input = st.number_input("Dégâts (par Round)", min_value=1, value=5)
+                    degats_input = st.number_input("Dégâts (par Round)", min_value=1, value=3, help='Ignorer si le sort ne fait pas de dégat')
                 
                 # Champs pour Autre
                 st.caption("Si 'Autre' :")
@@ -589,7 +710,20 @@ def afficher_carte_pnj(hero, i, context_key):
                             # On passe les dégâts choisis
                             nouvel_effet = Poison(duree=duree_tours, nom="Poison", degats_p_round=degats_input, cible=hero)
                             hero.effet["Poison"] = nouvel_effet
-                            
+
+                        if choix_effet == "Invisibilité":
+                            nouvel_effet = Invisibilité(duree=duree_tours, nom="Invisibilité", cible=hero)
+                            hero.effet['Invisibilité'] = nouvel_effet
+
+                        if choix_effet == 'Paralysie':
+                            nouvel_effet = Paralysie(duree=duree_tours, nom="Paralysie", cible=hero)
+                            hero.effet['Paralysie'] = nouvel_effet
+
+                        if choix_effet == 'Benediction':
+                            nouvel_effet = Benediction(duree=duree_tours, nom="Benediction", cible=hero)
+                            hero.effet['Benediction'] = nouvel_effet
+
+
                         elif choix_effet == "Autre":
                             nom_final = nom_custom if nom_custom else "Inconnu"
                             nouvel_effet = AutreEffet(duree=duree_tours, nom=nom_final, description=desc_custom, cible=hero)
