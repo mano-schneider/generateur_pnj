@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import random
+import weakref
+
 
 # ==========================================
 # 1. DONNÉES & CONFIGURATION
@@ -129,6 +131,7 @@ def lancer_carac(classe:str):
         
     carac = lancers_bonus(classe, carac)
     modif_constitution = 0
+    modif_sagesse = 0
     
     for i in carac:
         val = carac[i]
@@ -143,11 +146,76 @@ def lancer_carac(classe:str):
         elif val <= 8: bonus = -1
 
         if i == 'C': modif_constitution = bonus
+        if i == 'S': modif_sagesse = bonus
         
         signe = "+" if bonus > 0 else ""
         carac[i] = f"{val}({signe}{bonus})" if bonus != 0 else str(val)
 
-    return carac, modif_constitution
+    return carac, modif_constitution, modif_sagesse
+
+
+
+
+
+
+
+
+class Effet:
+
+    _instances = weakref.WeakSet()
+
+    def __init__(self, duree_tours:int, nom:str, cible:Pnj):
+        self.duree = duree_tours*3
+        self.nom = nom
+        self.effet = []
+        Effet._instances.add(self)
+        self.cible = cible
+    
+    def faire_effet(self):
+        pass
+
+    @classmethod
+    def passer_round(cls):
+        for effet in cls._instances:
+            effet.duree -= 1
+            if effet.duree <= 0:
+                cls._instances.remove(effet)
+            else:
+                effet.faire_effet()
+
+
+
+
+class AutreEffet(Effet):
+    def __init__(self, duree:int, nom:str, description:str, cible:Pnj):
+        super().__init__(duree, nom, cible)
+        self.description = description
+    
+
+
+
+class Poison(Effet):
+
+    def __init__(self, duree:int, nom:str, degats_p_round:int, cible:Pnj):
+        super().__init__(duree, nom='Poison', cible=cible)
+        self.degats_p_round = degats_p_round
+    
+    def faire_effet(self):
+        self.cible.pv -= self.degats_p_round
+        if self.cible.pv <= 0: 
+            self.cible.pv = 0
+            self.cible.vivant = False
+
+
+        
+
+
+
+
+
+
+
+
 
 class Pnj:
     def __init__(self, nom:str, niveau:int, classe:str):
@@ -159,26 +227,33 @@ class Pnj:
         self.equipement_rare_offensif = []
         self.equipement_rare_defensif = []
         self.equipement_rare_general = []
-        self.equipement_classique = list(equip_classique[self.classe]) # Copie liste
-        self.po = self.niveau*random.randint(100, 300)
+        self.equipement_classique = list(equip_classique[self.classe])
+        self.po = self.po = self.niveau*random.randint(100, 300) if self.niveau <= 6 else self.niveau*random.randint(300, 700) if self.niveau <= 8 else self.niveau*random.randint(700, 1000) if self.niveau <= 10 else self.niveau*random.randint(2000, 2500)
         self.carac = {}
         self.jp = {}
         self.modif_constitution = 0
+        self.modif_sagesse = 0
         self.pv = 0
+        self.pv_max = 0
+        self.vivant = True
         self.ca = 0
+        self.effet = {}
 
     def trait_de_caractere(self, alignement:str):
         mapping = {
-            'LL': ['Psychorigide', 'Dévoué', 'Honnête'], 'LN': ['Pragmatique', 'Impartial'],
-            'NL': ['Tempéré', 'Déprimé'], 'NN': ['Indépendant', 'Imprévisible'],
-            'NC': ['Libre penseur', 'Joueur'], 'CN': ['Bon vivant', 'Imprudent'],
-            'CC': ['Égoïste', 'Destructeur']
+            'LL': ['Psychorigide', 'Veut être certain de n\'offenser personne', 'Dévoué à la garde', 'Honnête et fiable', 'Force tranquille', 'Amical et inspire le respect', 'Parano des chaotiques'],
+            'LN': ['Inquiet d\'enfreindre les règles', 'Pragmatique', 'Impartial', 'Rieur', 'Parano des chaotiques'],
+            'NL': ['Cherche à tempérer les plus loyaux que lui', 'déprimé face au chaos dans le monde', 'Suit les règles si ça l\'arrange'],
+            'NN': ['Un bon coup un mauvais coup', 'Équilibre avant tout', 'Indépendant', 'Imprévisible'],
+            'NC': ['Adore les jeux d\'argent', 'Libre penseur', 'Se moque de tout le monde', 'Imprévisible'],
+            'CN': ['Chaotique mais bon', 'Rackette les plus faible mais a peur des plus fort', 'Imprudent'],
+            'CC': ['Aime tabasser les enfants', 'Égoïste', 'Destructeur', 'Imprévisible et dangereux', 'Religieux fou']
         }
         traits = mapping.get(alignement, ['Neutre'])
         self.caractere = ' - '.join(random.sample(traits, min(2, len(traits))))
 
     def lancer_stats_completes(self):
-        self.carac, self.modif_constitution = lancer_carac(self.classe)
+        self.carac, self.modif_constitution, self.modif_sagesse = lancer_carac(self.classe)
         self.define_pv()
         self.define_equipement_rare()
         self.define_ca()
@@ -187,6 +262,10 @@ class Pnj:
     def define_pv(self):
         self.pv = lancer_pv(self.classe, self.niveau + 1 if self.niveau<=9 else 10, self.modif_constitution)
         if self.niveau>9: self.pv += (self.niveau - 9)*(1+self.modif_constitution)
+        if self.modif_constitution:
+            self.pv-= self.modif_constitution
+        self.pv_max = self.pv
+
 
     def define_equipement_rare(self):
         source = equip_par_classe_niv_1_a_6[self.classe] if self.niveau <= 6 else equip_par_classe_niv_7_ou_plus[self.classe]
@@ -211,68 +290,129 @@ class Pnj:
                     try: self.ca -= int(i.split('+')[1].split()[0])
                     except: continue
 
+
+    def recevoir_effet(self, effet:str, durée_tours:str):
+        #faire un dict de mapping
+        effet = effet.lower().strip()
+        mapping_effet = {'poison': Poison, 'autre': AutreEffet}
+
+        e = {effet: mapping_effet[effet](durée_tours, effet, self)}
+        self.effet.update(e)
+
+    
+    def nettoyage_effet(self):
+        self.effet = {nom: obj for nom, obj in self.effet.items() if obj.duree > 0}
+    
+    def perdre_pv(self, nb_degats:int):
+        self.pv -= nb_degats
+        if self.pv <= 0: 
+            self.pv = 0
+            self.vivant = False
+
+    def gagner_pv(self, nb_pv_soignés):
+        self.pv += nb_pv_soignés
+        if self.pv > self.pv_max: self.pv = self.pv_max
+
+
+
+
+
+
+
 # --- Sous-classes (avec la logique des JP incluse) ---
 class Voleur(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'voleur')
         self.guilde = random.choice(['Specularium','Kelven'])
-        if self.niveau<=4: self.jp={'Mort':13,'Baguettes':14,'Paralysie':13,'Souffle':16,'Sorts':15}
-        elif self.niveau<=8: self.jp={'Mort':11,'Baguettes':12,'Paralysie':11,'Souffle':14,'Sorts':13}
-        else: self.jp={'Mort':9,'Baguettes':10,'Paralysie':9,'Souffle':12,'Sorts':11}
+        self.alignement = random.choice(['CC','CN', 'NC', 'NN'])
+        self.jp = {'Rayon mortel, poison':13, 'Baguette magique':14, 'Paralysie ou pétrification':13, 'Souffle du dragon':16, 'Sceptre, baton ou sort':15} if self.niveau <= 4 else {'Rayon mortel, poison':11, 'Baguette magique':12, 'Paralysie ou pétrification':11, 'Souffle du dragon':14, 'Sceptre, baton ou sort':13} if self.niveau <= 8 else {'Rayon mortel, poison':9, 'Baguette magique':10, 'Paralysie ou pétrification':9, 'Souffle du dragon':12, 'Sceptre, baton ou sort':11} if self.niveau <= 12 else {'Rayon mortel, poison':7, 'Baguette magique':8, 'Paralysie ou pétrification':7, 'Souffle du dragon':10, 'Sceptre, baton ou sort':9} if self.niveau <= 16 else {'Rayon mortel, poison':5, 'Baguette magique':6, 'Paralysie ou pétrification':5, 'Souffle du dragon':8, 'Sceptre, baton ou sort':7}
 
 class Guerrier(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'guerrier')
-        if self.niveau<=3: self.jp={'Mort':12,'Baguettes':13,'Paralysie':14,'Souffle':15,'Sorts':16}
-        elif self.niveau<=6: self.jp={'Mort':10,'Baguettes':11,'Paralysie':12,'Souffle':13,'Sorts':14}
-        else: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':11,'Sorts':12}
+        self.jp = {'Rayon mortel, poison':12, 'Baguette magique':13, 'Paralysie ou pétrification':14, 'Souffle du dragon':15, 'Sceptre, baton ou sort':16} if self.niveau <= 3 else {'Rayon mortel, poison':10, 'Baguette magique':11, 'Paralysie ou pétrification':12, 'Souffle du dragon':13, 'Sceptre, baton ou sort':14} if self.niveau <= 6 else {'Rayon mortel, poison':8, 'Baguette magique':9, 'Paralysie ou pétrification':10, 'Souffle du dragon':11, 'Sceptre, baton ou sort':12} if self.niveau <= 9 else {'Rayon mortel, poison':6, 'Baguette magique':7, 'Paralysie ou pétrification':8, 'Souffle du dragon':9, 'Sceptre, baton ou sort':10} if self.niveau <= 12 else {'Rayon mortel, poison':6, 'Baguette magique':6, 'Paralysie ou pétrification':7, 'Souffle du dragon':8, 'Sceptre, baton ou sort':9}
 
 class Clerc(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'clerc')
-        self.culte = 'Idriss'
-        if self.niveau<=4: self.jp={'Mort':11,'Baguettes':12,'Paralysie':14,'Souffle':16,'Sorts':15}
-        elif self.niveau<=8: self.jp={'Mort':9,'Baguettes':10,'Paralysie':12,'Souffle':14,'Sorts':13}
-        else: self.jp={'Mort':7,'Baguettes':8,'Paralysie':10,'Souffle':12,'Sorts':11}
+        self.culte = 'Idriss' if self.alignement in ('NC','NN', 'NL') else 'Chardros' if self.alignement in ('CC', 'CN') else 'Balgor'
+        self.jp = {'Rayon mortel, poison':11, 'Baguette magique':12, 'Paralysie ou pétrification':14, 'Souffle du dragon':16, 'Sceptre, baton ou sort':15} if self.niveau <= 4 else {'Rayon mortel, poison':9, 'Baguette magique':10, 'Paralysie ou pétrification':12, 'Souffle du dragon':14, 'Sceptre, baton ou sort':13} if self.niveau <= 8 else {'Rayon mortel, poison':7, 'Baguette magique':8, 'Paralysie ou pétrification':10, 'Souffle du dragon':12, 'Sceptre, baton ou sort':11} if self.niveau <= 12 else {'Rayon mortel, poison':6, 'Baguette magique':7, 'Paralysie ou pétrification':8, 'Souffle du dragon':10, 'Sceptre, baton ou sort':9} if self.niveau <= 16 else {'Rayon mortel, poison':5, 'Baguette magique':6, 'Paralysie ou pétrification':6, 'Souffle du dragon':8, 'Sceptre, baton ou sort':7}
 
 class Mage(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'mage')
-        if self.niveau<=5: self.jp={'Mort':13,'Baguettes':14,'Paralysie':13,'Souffle':16,'Sorts':15}
-        elif self.niveau<=10: self.jp={'Mort':11,'Baguettes':12,'Paralysie':11,'Souffle':14,'Sorts':12}
-        else: self.jp={'Mort':9,'Baguettes':10,'Paralysie':9,'Souffle':12,'Sorts':9}
+        self.jp = {'Rayon mortel, poison':13, 'Baguette magique':14, 'Paralysie ou pétrification':13, 'Souffle du dragon':16, 'Sceptre, baton ou sort':15} if self.niveau <= 5 else {'Rayon mortel, poison':11, 'Baguette magique':12, 'Paralysie ou pétrification':11, 'Souffle du dragon':14, 'Sceptre, baton ou sort':12} if self.niveau <= 10 else {'Rayon mortel, poison':9, 'Baguette magique':10, 'Paralysie ou pétrification':9, 'Souffle du dragon':12, 'Sceptre, baton ou sort':9} if self.niveau <= 15 else {'Rayon mortel, poison':7, 'Baguette magique':8, 'Paralysie ou pétrification':7, 'Souffle du dragon':10, 'Sceptre, baton ou sort':6} if self.niveau <= 20 else {'Rayon mortel, poison':5, 'Baguette magique':6, 'Paralysie ou pétrification':5, 'Souffle du dragon':8, 'Sceptre, baton ou sort':4}
 
 class Nain(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'nain')
-        if self.niveau<=3: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':13,'Sorts':12}
-        elif self.niveau<=6: self.jp={'Mort':6,'Baguettes':7,'Paralysie':8,'Souffle':10,'Sorts':9}
-        else: self.jp={'Mort':4,'Baguettes':5,'Paralysie':6,'Souffle':7,'Sorts':6}
+        self.jp = {'Rayon mortel, poison':8, 'Baguette magique':9, 'Paralysie ou pétrification':10, 'Souffle du dragon':13, 'Sceptre, baton ou sort':12} if self.niveau <= 3 else {'Rayon mortel, poison':6, 'Baguette magique':7, 'Paralysie ou pétrification':8, 'Souffle du dragon':10, 'Sceptre, baton ou sort':9} if self.niveau <= 6 else {'Rayon mortel, poison':4, 'Baguette magique':5, 'Paralysie ou pétrification':6, 'Souffle du dragon':7, 'Sceptre, baton ou sort':6} if self.niveau <= 9 else {'Rayon mortel, poison':2, 'Baguette magique':3, 'Paralysie ou pétrification':4, 'Souffle du dragon':4, 'Sceptre, baton ou sort':3}
+        self.clan = random.choice(['Arche de jade', 'Poing sanglant', 'Forge de Roïd'])
 
 class Elfe(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'elfe')
-        if self.niveau<=3: self.jp={'Mort':12,'Baguettes':13,'Paralysie':13,'Souffle':15,'Sorts':15}
-        elif self.niveau<=6: self.jp={'Mort':8,'Baguettes':10,'Paralysie':10,'Souffle':11,'Sorts':11}
-        else: self.jp={'Mort':4,'Baguettes':7,'Paralysie':7,'Souffle':7,'Sorts':7}
+        self.jp = {'Rayon mortel, poison':12, 'Baguette magique':13, 'Paralysie ou pétrification':13, 'Souffle du dragon':15, 'Sceptre, baton ou sort':15} if self.niveau <= 3 else {'Rayon mortel, poison':8, 'Baguette magique':10, 'Paralysie ou pétrification':10, 'Souffle du dragon':11, 'Sceptre, baton ou sort':11} if self.niveau <= 6 else {'Rayon mortel, poison':4, 'Baguette magique':7, 'Paralysie ou pétrification':7, 'Souffle du dragon':7, 'Sceptre, baton ou sort':7} if self.niveau <= 9 else {'Rayon mortel, poison':2, 'Baguette magique':4, 'Paralysie ou pétrification':4, 'Souffle du dragon':3, 'Sceptre, baton ou sort':3}
+        self.clan = random.choice(['Croix Verte', 'Trèfle Rouge', 'Flamme d\'Or'])
 
 class Petite_gens(Pnj):
     def __init__(self, nom, niveau):
         super().__init__(nom, niveau, 'petite-gens')
-        if self.niveau<=3: self.jp={'Mort':8,'Baguettes':9,'Paralysie':10,'Souffle':13,'Sorts':12}
-        elif self.niveau<=6: self.jp={'Mort':5,'Baguettes':6,'Paralysie':7,'Souffle':8,'Sorts':9}
-        else: self.jp={'Mort':2,'Baguettes':3,'Paralysie':4,'Souffle':5,'Sorts':4}
+        self.alignement = random.choice(['LL', 'LN', 'NL', 'NN'])
+        self.jp = {'Rayon mortel, poison':8, 'Baguette magique':9, 'Paralysie ou pétrification':10, 'Souffle du dragon':13, 'Sceptre, baton ou sort':12} if self.niveau <= 3 else {'Rayon mortel, poison':5, 'Baguette magique':6, 'Paralysie ou pétrification':7, 'Souffle du dragon':8, 'Sceptre, baton ou sort':9} if self.niveau <= 6 else {'Rayon mortel, poison':2, 'Baguette magique':3, 'Paralysie ou pétrification':4, 'Souffle du dragon':5, 'Sceptre, baton ou sort':4}
+        self.clan = random.choice(['Huttes Jumelles'])
 
 def generer_pnj_objet(nom, niveau, classe):
     classe_map = {'voleur': Voleur, 'guerrier': Guerrier, 'clerc': Clerc, 'mage': Mage, 'nain': Nain, 'elfe': Elfe, 'petite-gens': Petite_gens}
     pnj = classe_map.get(classe, Guerrier)(nom, niveau)
     return pnj
 
-# ==========================================
+
+
+
+
+
+#==========================================
 # 3. INTERFACE STREAMLIT
 # ==========================================
 
+
 st.title("🛡️ Générateur de PNJ - D&D")
+
+col_time, col_info = st.columns([1, 4])
+with col_time:
+    # On fait passer un "Round" (la plus petite unité)
+    if st.button("⏳ Passer un Round", type="primary", help="Fait avancer le temps de 1 Round (1/3 de Tour)."):
+        
+        tous_les_pnj = []
+        tous_les_pnj.extend(st.session_state.favoris)
+        if st.session_state.resultats_temporaires:
+            for grp in st.session_state.resultats_temporaires:
+                tous_les_pnj.extend(grp['pnjs'])
+        
+        compteur_effets = 0
+        
+        for pnj in tous_les_pnj:
+            if pnj.vivant and hasattr(pnj, 'effet') and pnj.effet:
+                effets_actifs = list(pnj.effet.values())
+                for effet in effets_actifs:
+                    effet.faire_effet() 
+                    effet.duree -= 1 # On enlève 1 round à la durée totale
+                    compteur_effets += 1
+                pnj.nettoyage_effet()
+        
+        if compteur_effets > 0:
+            st.toast(f"Round terminé ! {compteur_effets} effets appliqués.", icon="⚔️")
+        else:
+            st.toast("Round terminé. Aucun effet actif.", icon="🕊️")
+        
+        st.rerun()
+
+with col_info:
+    st.info("ℹ️ **Rappel :** 1 Tour de jeu = 3 Rounds. Le bouton fait avancer de **1 Round**.")
+
+st.divider()
+
 
 # --- SIDEBAR: Config & Panier ---
 st.sidebar.header("1. Configurer un groupe")
@@ -307,11 +447,14 @@ st.sidebar.header(f"❤️ Favoris ({len(st.session_state.favoris)})")
 if st.session_state.favoris:
     data_exp = []
     for p in st.session_state.favoris:
+        # Sécurisation des attributs pour l'export
+        carac = p.carac if isinstance(p.carac, dict) else {}
         data_exp.append({
             "Nom": p.nom, "Classe": p.classe, "Niveau": p.niveau,
-            "PV": p.pv, "CA": p.ca, "PO": p.po, "Alignement": p.alignement, "Caractère": p.caractere,
-            "F": p.carac.get('F'), "I": p.carac.get('I'), "S": p.carac.get('S'),
-            "D": p.carac.get('D'), "C": p.carac.get('C'), "Ch": p.carac.get('Ch'),
+            "PV": p.pv, "PV_Max": getattr(p, 'pv_max', p.pv), # Ajout PV Max export
+            "CA": p.ca, "PO": p.po, "Alignement": p.alignement, "Caractère": p.caractere,
+            "F": carac.get('F'), "I": carac.get('I'), "S": carac.get('S'),
+            "D": carac.get('D'), "C": carac.get('C'), "Ch": carac.get('Ch'),
             "Eq_Base": p.equipement_classique,
             "Eq_Rare_Off": p.equipement_rare_offensif, "Eq_Rare_Def": p.equipement_rare_defensif, "Eq_Rare_Gen": p.equipement_rare_general
         })
@@ -331,6 +474,9 @@ if fichier and st.sidebar.button("Valider Import"):
         for _, r in df.iterrows():
             pnj = generer_pnj_objet(r['Nom'], int(r['Niveau']), r['Classe'])
             pnj.pv, pnj.ca, pnj.po, pnj.alignement = int(r['PV']), int(r['CA']), int(r['PO']), r['Alignement']
+            # Récupération PV Max ou fallback sur PV actuels
+            pnj.pv_max = int(r['PV_Max']) if 'PV_Max' in r else pnj.pv 
+            
             if pd.notna(r['Caractère']): pnj.caractere = r['Caractère']
             pnj.carac = {'F':str(r['F']), 'I':str(r['I']), 'S':str(r['S']), 'D':str(r['D']), 'C':str(r['C']), 'Ch':str(r['Ch'])}
             pnj.equipement_classique = str(r['Eq_Base'])
@@ -346,6 +492,127 @@ if fichier and st.sidebar.button("Valider Import"):
 # 4. ZONE PRINCIPALE (GÉNÉRATION & AFFICHAGE)
 # ==========================================
 
+# Fonction centrale d'affichage d'une carte PNJ
+def afficher_carte_pnj(hero, i, context_key):
+    with st.container(border=True):
+        # 1. En-tête et Statut
+        col_titre, col_statut = st.columns([3, 1])
+        with col_titre:
+            st.subheader(hero.nom)
+            st.caption(f"{hero.classe.capitalize()} Niv.{hero.niveau}")
+        with col_statut:
+            if hero.pv <= 0: st.markdown("💀 **MORT**")
+            else: st.markdown("🟢 **VIVANT**")
+
+        st.info(f"🧠 {hero.caractere}")
+        
+        # 2. Détails RP
+        details = f"⚖️ **Alignement :** {hero.alignement}"
+        if getattr(hero, 'guilde', None): details += f"  \n🗡️ **Guilde :** {hero.guilde}"
+        if getattr(hero, 'clan', None):   details += f"  \n🌲 **Clan :** {hero.clan}"
+        if getattr(hero, 'culte', None):  details += f"  \n🙏 **Culte :** {hero.culte}"
+        st.markdown(details)
+        
+        st.divider()
+
+        # 3. Métriques
+        c1, c2, c3 = st.columns(3)
+        c1.metric("❤️ PV", f"{hero.pv}/{getattr(hero, 'pv_max', hero.pv)}")
+        c2.metric("🛡️ CA", hero.ca)
+        c3.metric("💰 Or", hero.po)
+        
+        # 4. Caractéristiques & Jets
+        with st.expander("📊 Caractéristiques", expanded=False):
+            sc = st.columns(6)
+            for idx, k in enumerate(['F','I','S','D','C','Ch']):
+                val = hero.carac.get(k) if isinstance(hero.carac, dict) else "?"
+                sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{val}</small></div>", unsafe_allow_html=True)
+        
+        with st.expander("🛡️ Jets de protection"):
+            sj = st.columns(5)
+            # CORRECTION : On utilise les clés exactes définies dans tes classes PNJ
+            liste_jp = [
+                ('Rayon mortel, poison', '☠️'),
+                ('Baguette magique', '🪄'),
+                ('Paralysie ou pétrification', '🗿'),
+                ('Souffle du dragon', '🐲'),
+                ('Sceptre, baton ou sort', '✨')
+            ]
+            for idx, (cle_exacte, icon) in enumerate(liste_jp):
+                # On récupère la valeur avec la clé exacte
+                valeur = hero.jp.get(cle_exacte, '-')
+                sj[idx].markdown(f"<div style='text-align:center;font-size:12px'>{icon}<br><b>{valeur}</b></div>", unsafe_allow_html=True)
+        
+        with st.expander("🎒 Inventaire"):
+            st.caption(f"Base: {hero.equipement_classique}")
+            if hero.equipement_rare_offensif: st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
+            if hero.equipement_rare_defensif: st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
+            if hero.equipement_rare_general: st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
+
+        # 5. GESTION DES EFFETS
+        st.divider()
+        st.markdown("🧪 **Effets Actifs**")
+        
+        if hasattr(hero, 'effet') and hero.effet:
+            for nom_effet, obj_effet in list(hero.effet.items()):
+                col_e1, col_e2 = st.columns([3, 1])
+                # Affichage des rounds restants
+                col_e1.text(f"• {nom_effet} (Reste: {obj_effet.duree} rounds)")
+                if col_e2.button("🗑️", key=f"del_eff_{context_key}_{nom_effet}"):
+                    del hero.effet[nom_effet]
+                    st.rerun()
+        else:
+            st.caption("Aucun effet.")
+
+        # Menu d'ajout d'effet
+        with st.expander("➕ Ajouter un effet"):
+            with st.form(key=f"form_effet_{context_key}"):
+                # Choix du type
+                choix_effet = st.selectbox("Type d'effet", ["Poison", "Autre"])
+                
+                # Saisie en TOURS (converti en rounds par la classe Effet)
+                duree_tours = st.number_input("Durée (en Tours)", min_value=1, value=1, help="1 Tour = 3 Rounds")
+                
+                # Case Dégâts qui n'apparait (logiquement) que pour le Poison
+                degats_input = 0
+                if choix_effet == "Poison":
+                    degats_input = st.number_input("Dégâts (par Round)", min_value=1, value=5)
+                
+                # Champs pour Autre
+                st.caption("Si 'Autre' :")
+                nom_custom = st.text_input("Nom de l'effet")
+                desc_custom = st.text_input("Description")
+                
+                if st.form_submit_button("Appliquer"):
+                    try:
+                        if choix_effet == "Poison":
+                            # On passe les dégâts choisis
+                            nouvel_effet = Poison(duree=duree_tours, nom="Poison", degats_p_round=degats_input, cible=hero)
+                            hero.effet["Poison"] = nouvel_effet
+                            
+                        elif choix_effet == "Autre":
+                            nom_final = nom_custom if nom_custom else "Inconnu"
+                            nouvel_effet = AutreEffet(duree=duree_tours, nom=nom_final, description=desc_custom, cible=hero)
+                            hero.effet[nom_final] = nouvel_effet
+                        
+                        st.toast(f"Effet ajouté ! (Durée : {duree_tours} tours)", icon="🧪")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur : {e}")
+
+        st.divider()
+        
+        # 6. BOUTONS D'ACTION
+        if "resultat" in context_key:
+            if st.button("❤️ Sauvegarder", key=f"btn_save_{context_key}"):
+                st.session_state.favoris.append(hero)
+                st.toast("Sauvegardé !", icon="✅")
+                st.rerun()
+        else:
+            if st.button("❌ Supprimer", key=f"btn_del_{context_key}"):
+                st.session_state.favoris.pop(i)
+                st.rerun()
+
 # A. BOUTON DE GÉNÉRATION
 if st.button("🎲 GÉNÉRER TOUT", type="primary"):
     st.session_state.resultats_temporaires = []
@@ -360,94 +627,20 @@ if st.button("🎲 GÉNÉRER TOUT", type="primary"):
                 groupe['pnjs'].append(hero)
             st.session_state.resultats_temporaires.append(groupe)
 
-# B. AFFICHAGE DES NOUVEAUX RÉSULTATS (TEMPORAIRES)
+# B. AFFICHAGE DES NOUVEAUX RÉSULTATS
 if st.session_state.resultats_temporaires:
     for i_grp, grp in enumerate(st.session_state.resultats_temporaires):
         st.markdown(f"### {grp['titre']}")
         cols = st.columns(min(grp['quantite'], 3))
         for i_hero, hero in enumerate(grp['pnjs']):
-            with cols[i_hero % 3].container(border=True):
-                st.subheader(hero.nom)
-                st.info(f"🧠 {hero.caractere}")
-                
-                # --- AJOUT : DÉTAILS RP (Alignement, Clan, Guilde...) ---
-                details = f"⚖️ **Alignement :** {hero.alignement}"
-                # On vérifie dynamiquement si l'attribut existe pour l'afficher
-                if getattr(hero, 'guilde', None): details += f"  \n🗡️ **Guilde :** {hero.guilde}"
-                if getattr(hero, 'clan', None):   details += f"  \n🌲 **Clan :** {hero.clan}"
-                if getattr(hero, 'culte', None):  details += f"  \n🙏 **Culte :** {hero.culte}"
-                st.markdown(details)
-                # -------------------------------------------------------
+            with cols[i_hero % 3]:
+                afficher_carte_pnj(hero, i_hero, f"resultat_{i_grp}_{i_hero}_{hero.nom}")
 
-                c1, c2, c3 = st.columns(3)
-                c1.metric("❤️ PV", hero.pv); c2.metric("🛡️ CA", hero.ca); c3.metric("💰 Or", hero.po)
-                
-                with st.expander("📊 Caractéristiques", expanded=True):
-                    sc = st.columns(6)
-                    for idx, k in enumerate(['F','I','S','D','C','Ch']):
-                        sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k)}</small></div>", unsafe_allow_html=True)
-                
-                with st.expander("🛡️ Jets de protection"):
-                    sj = st.columns(5)
-                    for idx, (k, icon) in enumerate([('Mort','☠️'),('Baguettes','🪄'),('Paralysie','🗿'),('Souffle','🐲'),('Sorts','✨')]):
-                        sj[idx].markdown(f"<div style='text-align:center;font-size:12px'>{icon}<br><b>{hero.jp.get(k,'-')}</b></div>", unsafe_allow_html=True)
-                
-                with st.expander("🎒 Inventaire"):
-                    st.caption(f"Base: {hero.equipement_classique}")
-                    if hero.equipement_rare_offensif: st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
-                    if hero.equipement_rare_defensif: st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
-                    if hero.equipement_rare_general: st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
-                
-                st.divider()
-                
-                stable_key = f"btn_save_{i_grp}_{i_hero}_{hero.nom}"
-                if st.button("❤️ Sauvegarder", key=stable_key):
-                    st.session_state.favoris.append(hero)
-                    st.toast("Sauvegardé !", icon="✅")
-                    st.rerun()
-
-# C. AFFICHAGE DES PNJ SAUVEGARDÉS / IMPORTÉS (PERMANENTS)
+# C. AFFICHAGE DES FAVORIS
 if st.session_state.favoris:
     st.markdown("---")
     st.header(f"📂 PNJ Sauvegardés / Importés ({len(st.session_state.favoris)})")
-    
     cols_fav = st.columns(3)
-    
     for i, hero in enumerate(st.session_state.favoris):
-        with cols_fav[i % 3].container(border=True):
-            st.subheader(f"⭐ {hero.nom}")
-            st.caption(f"{hero.classe.capitalize()} Niv.{hero.niveau}")
-            st.info(f"🧠 {hero.caractere}")
-            
-            # --- AJOUT : DÉTAILS RP (Alignement, Clan, Guilde...) ---
-            details = f"⚖️ **Alignement :** {hero.alignement}"
-            if getattr(hero, 'guilde', None): details += f"  \n🗡️ **Guilde :** {hero.guilde}"
-            if getattr(hero, 'clan', None):   details += f"  \n🌲 **Clan :** {hero.clan}"
-            if getattr(hero, 'culte', None):  details += f"  \n🙏 **Culte :** {hero.culte}"
-            st.markdown(details)
-            # -------------------------------------------------------
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("❤️ PV", hero.pv); c2.metric("🛡️ CA", hero.ca); c3.metric("💰 Or", hero.po)
-            
-            with st.expander("📊 Caractéristiques", expanded=False):
-                sc = st.columns(6)
-                for idx, k in enumerate(['F','I','S','D','C','Ch']):
-                    sc[idx].markdown(f"<div style='text-align:center'><b>{k}</b><br><small>{hero.carac.get(k)}</small></div>", unsafe_allow_html=True)
-            
-            with st.expander("🛡️ Jets de protection"):
-                sj = st.columns(5)
-                for idx, (k, icon) in enumerate([('Mort','☠️'),('Baguettes','🪄'),('Paralysie','🗿'),('Souffle','🐲'),('Sorts','✨')]):
-                    sj[idx].markdown(f"<div style='text-align:center;font-size:12px'>{icon}<br><b>{hero.jp.get(k,'-')}</b></div>", unsafe_allow_html=True)
-            
-            with st.expander("🎒 Inventaire"):
-                st.caption(f"Base: {hero.equipement_classique}")
-                if hero.equipement_rare_offensif: st.info(f"⚔️ **Off:** {hero.equipement_rare_offensif}")
-                if hero.equipement_rare_defensif: st.success(f"🛡️ **Def:** {hero.equipement_rare_defensif}")
-                if hero.equipement_rare_general: st.warning(f"✨ **Obj:** {hero.equipement_rare_general}")
-            
-            st.divider()
-            
-            if st.button("❌ Supprimer", key=f"del_fav_{i}_{hero.nom}"):
-                st.session_state.favoris.pop(i)
-                st.rerun()
+        with cols_fav[i % 3]:
+            afficher_carte_pnj(hero, i, f"fav_{i}_{hero.nom}")
