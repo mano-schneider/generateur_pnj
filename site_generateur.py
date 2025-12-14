@@ -1,9 +1,9 @@
+from __future__ import annotations
 import streamlit as st
 import pandas as pd
 import random
 import weakref
 import streamlit.components.v1 as components
-from __future__ import annotations
 
 
 # ==========================================
