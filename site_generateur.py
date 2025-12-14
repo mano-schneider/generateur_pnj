@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import weakref
 import streamlit.components.v1 as components
+from __future__ import annotations
 
 
 # ==========================================
